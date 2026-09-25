@@ -9,7 +9,7 @@ This is a static site with no build step: plain HTML, CSS and JavaScript.
 | `index.html` | Page shell and font loading (Inter Tight and IBM Plex Sans Arabic) |
 | `styles.css` | All styles and colour tokens |
 | `content.js` | Every piece of copy and demo data for EN/AR × UAE/KSA. Edit text here. |
-| `app.js` | Rendering, the market and language switches, the feature tabs, the FAQ, the animated POS demo, and the call-back form |
+| `app.js` | Rendering, the market and language switches, the feature scroll story, the FAQ, the animated POS demo, and the call-back form |
 | `assets/` | Brand logos, hardware photos (`hw-*`) and integration logos (`int-*`) |
 
 ## Run locally
