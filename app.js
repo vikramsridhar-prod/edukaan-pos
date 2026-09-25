@@ -16,6 +16,13 @@
   // Hero background photo per market. The design has empty image slots for these;
   // drop a file into assets/ and set its path here (e.g. 'assets/hero-ae.jpg') to show it.
   const HERO_PHOTOS = { AE: null, SA: null };
+  const TRUSTED_LOGOS = [
+    { file: 'trusted-samsung.svg', name: 'Samsung', size: 'width:140px' },
+    { file: 'trusted-huawei.png', name: 'Huawei', size: 'height:56px' },
+    { file: 'trusted-nokia.svg', name: 'Nokia', size: 'width:120px' },
+    { file: 'trusted-mycandy.svg', name: 'My Candy', size: 'height:52px' },
+    { file: 'trusted-switch.svg', name: 'Switch', size: 'width:112px' },
+  ];
   const HW_PHOTOS = ['terminal', 'printer', 'scanner', 'drawer', 'card'];
   // Integration logos per column; `only` limits a logo to one market.
   const INTEGRATIONS = {
@@ -44,7 +51,7 @@
     ],
   };
 
-  const state = { country: null, lang: null, openFaq: -1, feat: 0, regionOpen: false, tick: 0 };
+  const state = { country: null, lang: null, openFaq: -1, feat: 0, regionOpen: false, tick: 0, posIn: false };
   const app = document.getElementById('app');
 
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -122,9 +129,7 @@
       <div class="stack hero-copy">
         <div class="tags">
           ${map(d.retail[c], r => `<span class="tag">${esc(r)}</span>`)}
-          <span class="tag white">${esc(t.countryTag)}</span>
         </div>
-        <div class="pos-line">${esc(t.posLine)}</div>
         <h1>${esc(t.heroA)}<span>${esc(t.heroB)}</span>${esc(t.heroC)}</h1>
         <p class="hero-sub">${esc(t.heroSub)}</p>
         <div class="cta-row">
@@ -132,17 +137,28 @@
           <span class="cta-note">${esc(t.ctaNote)}</span>
         </div>
       </div>
-      <div class="pos" aria-hidden="true">
-        <div class="pos-frame">
-          <div class="pos-screen">
-            <div class="pos-main">
-              <div class="pos-head"><b>${esc(t.saleNo)}</b><small>${esc(t.saleMeta)}</small></div>
-              <div id="pos-live"></div>
+      <div class="pos${state.posIn ? ' in' : ''}" aria-hidden="true">
+        <div class="tab-tilt">
+          <div class="tab-bezel">
+            <div class="tab-body">
+              <div class="tab-cam"></div>
+              <div class="tab-screen">
+                <div class="pos-screen">
+                  <div class="pos-main">
+                    <div class="pos-head"><b>${esc(t.saleNo)}</b><small>${esc(t.saleMeta)}</small></div>
+                    <div id="pos-live"></div>
+                  </div>
+                  <div class="pos-side" id="pos-side"></div>
+                </div>
+              </div>
             </div>
-            <div class="pos-side" id="pos-side"></div>
           </div>
+          <div class="tab-handle start"><span></span><span></span></div>
+          <div class="tab-handle end"><span></span></div>
+          <div class="low-stock"><div>${esc(t.lowStock)}</div><div>${esc(t.reorder)} →</div></div>
         </div>
-        <div class="low-stock"><div>${esc(t.lowStock)}</div><div>${esc(t.reorder)} →</div></div>
+        <div class="tab-stand"></div>
+        <div class="tab-shadow"></div>
       </div>
     </div>
     </section>`;
@@ -150,40 +166,104 @@
 
   function trusted({ t }) {
     return `
-    <section class="wrap trusted" data-screen-label="trusted by">
-      <div class="overline muted">${esc(t.trustedBy)}</div>
-      <div class="logo-row">
-        ${map(TRUSTED, b => `<div class="logo-card"><img src="${b.src}" alt="${esc(b.name)}"></div>`)}
-      </div>
-    </section>`;
-  }
-
-  function features({ c, t, d }) {
-    const list = d.features[c];
-    const i = Math.min(state.feat, list.length - 1), a = list[i];
-    return `
-    <section id="features" class="light" data-screen-label="features">
-      <div class="wrap features">
-        <h2 class="h2">${esc(t.featTitle)}</h2>
-        <div class="feat-grid">
-          <div class="feat-tabs" role="tablist">
-            ${map(list, (f, j) => `<button class="feat-tab${j === i ? ' active' : ''}" role="tab" aria-selected="${j === i}" data-act="feat" data-i="${j}"><span>${pad2(j)}</span>${esc(f.title)}</button>`)}
-          </div>
-          <div class="feat-panel" role="tabpanel">
-            <div class="stack" style="gap:16px">
-              <div class="overline">${pad2(i)} / ${String(list.length).padStart(2, '0')}</div>
-              <div class="feat-title">${esc(a.title)}</div>
-              <div class="feat-body">${esc(a.body)}</div>
-            </div>
-            <div class="card">
-              <div class="overline">${esc(a.cardTitle)}</div>
-              ${map(a.rows, r => `<div class="kv"><span>${esc(r.k)}</span><span>${esc(r.v)}</span></div>`)}
-              <div class="card-action">${esc(a.action)}</div>
-            </div>
+    <section class="light trusted" data-screen-label="trusted by">
+      <div class="trusted-title">${esc(t.trustedBy)}</div>
+      <div class="trusted-band">
+        <div class="wrap">
+          <div class="trusted-grid">
+            ${map(TRUSTED_LOGOS, (l, i) => `<div class="trusted-cell${i % 2 ? '' : ' shade'}"><img src="assets/${l.file}" alt="${esc(l.name)}" style="${l.size}"></div>`)}
           </div>
         </div>
       </div>
     </section>`;
+  }
+
+  // Scroll story: each feature is a tall step on the left; the sticky tablet on the right shows the step nearest mid-screen.
+  function features({ c, t, d }) {
+    const list = d.features[c];
+    const i = Math.min(state.feat, list.length - 1);
+    return `
+    <section id="features" class="light" data-screen-label="features">
+      <div class="wrap feat-head">
+        <h2 class="h2">${esc(t.featTitle)}</h2>
+        <div class="feat-sub">${esc(t.featSub)}</div>
+      </div>
+      <div class="wrap feat-story">
+        <div class="feat-list">
+          ${map(list, (f, j) => `
+            <div class="feat-step" data-feat="${j}">
+              <div class="feat-item${j === i ? ' on' : ''}">
+                <div class="feat-rail"></div>
+                <div class="stack feat-copy">
+                  <div class="overline">${pad2(j)} / ${String(list.length).padStart(2, '0')}</div>
+                  <div class="feat-title">${esc(f.title)}</div>
+                  <div class="feat-body">${esc(f.body)}</div>
+                  <div class="chips">${map(f.chips || [], ch => `<span class="chip">${esc(ch)}</span>`)}</div>
+                  <div class="feat-stats">
+                    <div class="feat-stat"><b>${esc(f.stat)}</b><span>${esc(f.statLabel)}</span></div>
+                    <div class="feat-mini">${map(f.mini || [], m => `<div><i></i><span>${esc(m)}</span></div>`)}</div>
+                  </div>
+                </div>
+              </div>
+            </div>`)}
+        </div>
+        <div class="feat-device" aria-hidden="true">
+          <div class="dev-frame">
+            <div class="dev-notch"></div>
+            <div class="dev-screen">
+              <div class="dev-bar">
+                <div class="dev-app"><img src="assets/edukaan-dark.png" alt=""><span id="dev-card">· ${esc(list[i].cardTitle)}</span></div>
+                <div class="dev-dots">${map(list, (f, j) => `<span class="${j === i ? 'on' : ''}"></span>`)}</div>
+              </div>
+              <div class="dev-body in" id="dev-body">${deviceBody(list[i], i, list.length)}</div>
+            </div>
+          </div>
+          <div class="feat-pills">${map(list, (f, j) => `<button class="${j === i ? 'on' : ''}" data-act="feat-jump" data-i="${j}" tabindex="-1">${pad2(j)}</button>`)}</div>
+        </div>
+      </div>
+    </section>`;
+  }
+
+  function deviceBody(a, i, n) {
+    return `
+      <div class="dev-title"><div>${esc(a.screenTitle || a.cardTitle)}</div><span class="dev-badge">${esc(a.badge)}</span></div>
+      ${map(a.rows, r => `<div class="dev-row"><span>${esc(r.k)}</span><span>${esc(r.v)}</span></div>`)}
+      <div class="dev-tiles">${map(a.tiles || [], tl => `<div><small>${esc(tl.k)}</small><b>${esc(tl.v)}</b></div>`)}</div>
+      <div class="dev-foot">
+        <div class="dev-progress"><div style="width:${Math.round(((i + 1) / n) * 100)}%"></div></div>
+        <div class="dev-action">${esc(a.action)}</div>
+      </div>`;
+  }
+
+  // Swap the active feature in place (no full re-render) so the CSS transitions can play.
+  function setFeat(i) {
+    if (i === state.feat) return;
+    state.feat = i;
+    const list = ctx().d.features[country()];
+    const sec = document.getElementById('features');
+    if (!sec) return;
+    sec.querySelectorAll('.feat-item').forEach((el, j) => el.classList.toggle('on', j === i));
+    sec.querySelectorAll('.dev-dots span, .feat-pills button').forEach(el => el.classList.remove('on'));
+    sec.querySelectorAll('.dev-dots span')[i]?.classList.add('on');
+    sec.querySelectorAll('.feat-pills button')[i]?.classList.add('on');
+    document.getElementById('dev-card').textContent = '· ' + list[i].cardTitle;
+    const body = document.getElementById('dev-body');
+    body.classList.remove('in');
+    clearTimeout(setFeat.t);
+    setFeat.t = setTimeout(() => { body.innerHTML = deviceBody(list[i], i, list.length); body.classList.add('in'); }, 180);
+  }
+
+  function pickFeat() {
+    const steps = document.querySelectorAll('.feat-step');
+    if (!steps.length) return;
+    const mid = innerHeight / 2;
+    let best = -1, bestD = Infinity;
+    steps.forEach((el, j) => {
+      const b = el.getBoundingClientRect();
+      const dist = b.top <= mid && b.bottom >= mid ? 0 : Math.min(Math.abs(b.top - mid), Math.abs(b.bottom - mid));
+      if (dist < bestD) { bestD = dist; best = j; }
+    });
+    if (best >= 0) setFeat(best);
   }
 
   function hub({ t, d }) {
@@ -194,6 +274,7 @@
         <div class="b">${esc(h.body)}</div>
       </div>`;
     return `
+    <div class="wrap"><div class="rule-dark"></div></div>
     <section class="wrap hub" data-screen-label="one pos hub">
       <div class="stack hub-head">
         <div class="overline accent">${esc(t.hubOverline)}</div>
@@ -221,6 +302,7 @@
     const rep = d.rep[c];
     const bars = [62, 48, 55, 71, 44, 88, 100];
     return `
+    <div class="wrap"><div class="rule-dark"></div></div>
     <section id="reporting" class="wrap split reporting" data-screen-label="reporting">
       <div class="stack">
         <div class="overline accent">${esc(t.repOverline)}</div>
@@ -262,6 +344,7 @@
   function wholesale(v) {
     const { c, t, d } = v;
     return `
+    <div class="wrap"><div class="rule-dark"></div></div>
     <section id="wholesale" class="wrap split wholesale" data-screen-label="wholesale">
       <div class="stack">
         <div class="overline accent">${esc(t.recOverline)}</div>
@@ -310,6 +393,7 @@
           </div>
         </div>
         <div>
+          <div class="rule-light"></div>
           <div class="hw-head"><h2>${esc(t.hwTitle)}</h2><div>${esc(t.hwNote)}</div></div>
           <div class="hw-grid">
             ${map(d.hardware, (h, i) => `
@@ -335,6 +419,7 @@
     return `
     <section class="light" data-screen-label="integrations">
       <div class="wrap integrations">
+        <div class="rule-mid"></div>
         <div class="stack int-head">
           <div class="overline">${esc(t.intTitle)}</div>
           <h2>${esc(t.intHeadline)}</h2>
@@ -381,6 +466,7 @@
 
   function stories({ c, d }) {
     return `
+    <div class="wrap"><div class="rule-dark"></div></div>
     <section class="wrap stories" data-screen-label="stories">
       <div class="story-grid">
         ${map(d.stories[c], s => `
@@ -395,6 +481,7 @@
 
   function faq({ c, t, d }) {
     return `
+    <div class="wrap"><div class="rule-dark"></div></div>
     <section id="faq" class="wrap faq" data-screen-label="faq">
       <h2>${esc(t.faqTitle)}</h2>
       <div class="faq-list">
@@ -510,6 +597,7 @@
       + stepsHardware(v) + integrations(v) + pricing(v) + stories(v) + faq(v) + contact(v) + '</main>' + footer(v);
     ['f-name', 'f-phone'].forEach((id, i) => { if (kept[i]) document.getElementById(id).value = kept[i]; });
     renderPos();
+    requestAnimationFrame(pickFeat);
   }
 
   function setState(patch) { Object.assign(state, patch); render(); }
@@ -527,7 +615,11 @@
       case 'region': setState({ regionOpen: !state.regionOpen }); break;
       case 'country': setState({ country: el.dataset.cc, lang: null, regionOpen: false, feat: 0, openFaq: -1 }); break;
       case 'lang': setState({ lang: el.dataset.l, regionOpen: false }); break;
-      case 'feat': setState({ feat: i }); break;
+      case 'feat-jump': {
+        const el = document.querySelectorAll('.feat-step')[i];
+        if (el) scrollTo({ top: el.getBoundingClientRect().top + scrollY - innerHeight * 0.15, behavior: 'smooth' });
+        break;
+      }
       case 'faq': setState({ openFaq: state.openFaq === i ? -1 : i }); break;
     }
   });
@@ -546,5 +638,12 @@
   });
 
   render();
+  let raf = 0;
+  const onScroll = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; pickFeat(); }); };
+  addEventListener('scroll', onScroll, { passive: true });
+  addEventListener('resize', onScroll);
+  setTimeout(pickFeat, 300);
+  // Hero tablet swings in from a slight angle shortly after load.
+  setTimeout(() => { state.posIn = true; document.querySelector('.pos')?.classList.add('in'); }, reducedMotion ? 0 : 600);
   if (config.animateDemo) setInterval(() => { if (!document.hidden) { state.tick++; renderPos(); } }, 110);
 })();
