@@ -277,7 +277,7 @@
     <div class="wrap"><div class="rule-dark"></div></div>
     <section class="wrap hub" data-screen-label="one pos hub">
       <div class="stack hub-head">
-        <div class="overline accent">${esc(t.hubOverline)}</div>
+        <div class="overline accent eyebrow">${esc(t.hubOverline)}</div>
         <h2 class="h2">${esc(t.hubTitle)}</h2>
       </div>
       <div class="hub-grid">
@@ -305,7 +305,7 @@
     <div class="wrap"><div class="rule-dark"></div></div>
     <section id="reporting" class="wrap split reporting" data-screen-label="reporting">
       <div class="stack">
-        <div class="overline accent">${esc(t.repOverline)}</div>
+        <div class="overline accent eyebrow">${esc(t.repOverline)}</div>
         <h2 class="h2">${esc(t.repTitle)}</h2>
         <p class="lead">${esc(t.repBody)}</p>
         <div class="points">
@@ -347,7 +347,7 @@
     <div class="wrap"><div class="rule-dark"></div></div>
     <section id="wholesale" class="wrap split wholesale" data-screen-label="wholesale">
       <div class="stack">
-        <div class="overline accent">${esc(t.recOverline)}</div>
+        <div class="overline accent eyebrow">${esc(t.recOverline)}</div>
         <h2 class="h2">${esc(t.recTitle)}</h2>
         <p class="lead">${esc(t.recBody)}</p>
         <div class="repl">
@@ -421,7 +421,7 @@
       <div class="wrap integrations">
         <div class="rule-mid"></div>
         <div class="stack int-head">
-          <div class="overline">${esc(t.intTitle)}</div>
+          <div class="overline eyebrow">${esc(t.intTitle)}</div>
           <h2>${esc(t.intHeadline)}</h2>
         </div>
         <div class="int-grid">

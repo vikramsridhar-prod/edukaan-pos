@@ -48,6 +48,8 @@ p { margin: 0; }
 .overline { font-size: 12px; line-height: 16px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; }
 .overline.accent { color: var(--orange-light); }
 .overline.muted { color: var(--grey-4); }
+/* Section eyebrows ("One POS does everything", "Reporting", …) — larger and heavier than the base overline. */
+.overline.eyebrow { font-size: 16px; line-height: 24px; font-weight: 700; }
 .h2 { font-size: 48px; line-height: 56px; font-weight: 700; }
 .lead { font-size: 18px; line-height: 28px; color: var(--grey-6); max-width: 52ch; text-wrap: pretty; }
 .split { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 64px 48px; align-items: center; }
