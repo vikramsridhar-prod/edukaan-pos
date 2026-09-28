@@ -1,13 +1,14 @@
-// Edukaan POS landing page — renders COPY / DATA (content.js) for the chosen market (AE / SA) and language (en / ar).
-// URL options: ?country=SA  ?lang=ar  ?demo=0 (freeze the hero POS animation)  ?pricing=0 (hide pricing)
+// Edukaan POS landing page — renders COPY / DATA (content.js) for the chosen market (AE / SA) and language (en / ar / hi / ur).
+// URL options: ?country=SA  ?lang=ar|hi|ur  ?demo=0 (freeze the hero POS animation)  ?pricing=0 (hide pricing)
 (function () {
   'use strict';
 
+  const LANGS = ['en', 'ar', 'hi', 'ur'];
   const params = new URLSearchParams(location.search);
   const reducedMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const config = {
     country: params.get('country') === 'SA' ? 'SA' : 'AE',
-    lang: ['en', 'ar'].includes(params.get('lang')) ? params.get('lang') : 'auto',
+    lang: LANGS.includes(params.get('lang')) ? params.get('lang') : 'auto',
     animateDemo: params.has('demo') ? params.get('demo') !== '0' : !reducedMotion,
     showPricing: params.get('pricing') !== '0',
   };
@@ -51,7 +52,7 @@
     ],
   };
 
-  const state = { country: null, lang: null, openFaq: -1, feat: 0, regionOpen: false, tick: 0, posIn: false };
+  const state = { country: null, lang: null, openFaq: -1, feat: 0, regionOpen: false, langOpen: false, tick: 0, posIn: false };
   const app = document.getElementById('app');
 
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -65,13 +66,16 @@
     return country() === 'SA' ? 'ar' : 'en';
   };
 
+  // Hindi and Urdu only translate part of the copy and data, so every language is layered over English.
+  // `ar` means right-to-left (Arabic and Urdu); only Arabic uses Arabic currency symbols.
   function ctx() {
-    const c = country(), l = lang(), sa = c === 'SA', ar = l === 'ar';
+    const c = country(), l = lang(), sa = c === 'SA', ar = l === 'ar' || l === 'ur';
+    const CL = COPY[l] || COPY.en;
     return {
-      c, l, sa, ar,
-      cur: ar ? (sa ? 'ر.س' : 'د.إ') : (sa ? 'SAR' : 'AED'),
-      t: { ...COPY[l].base, ...COPY[l][c] },
-      d: DATA[l],
+      c, l, sa, ar, CL,
+      cur: l === 'ar' ? (sa ? 'ر.س' : 'د.إ') : (sa ? 'SAR' : 'AED'),
+      t: { ...COPY.en.base, ...COPY.en[c], ...CL.base, ...CL[c] },
+      d: { ...DATA.en, ...(DATA[l] || {}) },
     };
   }
 
@@ -83,7 +87,7 @@
 
   // ---------- sections ----------
 
-  function nav({ c, l, t }) {
+  function nav({ c, l, t, CL }) {
     return `
     <header class="nav" data-screen-label="nav">
       <div class="wrap nav-inner">
@@ -94,20 +98,29 @@
         <div class="nav-actions">
           <div class="region">
             <button class="pill-btn" data-act="region" aria-haspopup="listbox" aria-expanded="${state.regionOpen}">
-              <span class="dot" style="background:var(--orange)"></span><span class="cn-full">${esc(COPY[l].names[c])}</span><span class="cn-short">${esc(t.countryTag)}</span><span class="caret">▾</span>
+              <span class="dot" style="background:var(--orange)"></span><span class="cn-full">${esc(CL.names[c])}</span><span class="cn-short">${esc(t.countryTag)}</span><span class="caret">▾</span>
             </button>
             ${state.regionOpen ? `
             <div class="region-menu" role="listbox">
               <div class="overline">${esc(t.regionTitle)}</div>
               ${map(['AE', 'SA'], cc => `
                 <button class="region-opt${cc === c ? ' active' : ''}" role="option" aria-selected="${cc === c}" data-act="country" data-cc="${cc}">
-                  <span>${esc(COPY[l].names[cc])}</span>${cc === c ? '<span class="check">✓</span>' : ''}
+                  <span>${esc(CL.names[cc])}</span>${cc === c ? '<span class="check">✓</span>' : ''}
                 </button>`)}
             </div>` : ''}
           </div>
-          <div class="lang" role="group" aria-label="Language">
-            <button class="${l === 'en' ? 'on' : ''}" data-act="lang" data-l="en" lang="en">EN</button>
-            <button class="${l === 'ar' ? 'on' : ''}" data-act="lang" data-l="ar" lang="ar">عربي</button>
+          <div class="region">
+            <button class="pill-btn" data-act="langmenu" aria-haspopup="listbox" aria-expanded="${state.langOpen}" aria-label="${esc(t.langTitle)}">
+              <span lang="${l}">${esc(LANG_LABELS[l])}</span><span class="caret">▾</span>
+            </button>
+            ${state.langOpen ? `
+            <div class="region-menu lang-menu" role="listbox">
+              <div class="overline">${esc(t.langTitle)}</div>
+              ${map(LANGS, k => `
+                <button class="region-opt${k === l ? ' active' : ''}" role="option" aria-selected="${k === l}" data-act="lang" data-l="${k}" lang="${k}">
+                  <span>${esc(LANG_LABELS[k])}</span>${k === l ? '<span class="check">✓</span>' : ''}
+                </button>`)}
+            </div>` : ''}
           </div>
           <a class="btn btn-primary nav-cta" href="#contact">${esc(t.ctaShort)}</a>
         </div>
@@ -302,8 +315,8 @@
     const rep = d.rep[c];
     const bars = [62, 48, 55, 71, 44, 88, 100];
     return `
-    <div class="wrap"><div class="rule-dark"></div></div>
-    <section id="reporting" class="wrap split reporting" data-screen-label="reporting">
+    <section class="band-grey">
+    <div id="reporting" class="wrap split reporting" data-screen-label="reporting">
       <div class="stack">
         <div class="overline accent eyebrow">${esc(t.repOverline)}</div>
         <h2 class="h2">${esc(t.repTitle)}</h2>
@@ -338,14 +351,15 @@
           </div>
         </div>
       </div>
+    </div>
     </section>`;
   }
 
   function wholesale(v) {
     const { c, t, d } = v;
     return `
-    <div class="wrap"><div class="rule-dark"></div></div>
-    <section id="wholesale" class="wrap split wholesale" data-screen-label="wholesale">
+    <section class="light">
+    <div id="wholesale" class="wrap split wholesale" data-screen-label="wholesale">
       <div class="stack">
         <div class="overline accent eyebrow">${esc(t.recOverline)}</div>
         <h2 class="h2">${esc(t.recTitle)}</h2>
@@ -379,29 +393,36 @@
           <div class="barcode"></div>
         </div>
       </div>
+    </div>
     </section>`;
   }
 
-  function stepsHardware({ t, d }) {
+  function steps({ t, d }) {
     return `
-    <section id="hardware" class="light" data-screen-label="steps and hardware">
-      <div class="wrap steps-hw">
-        <div>
-          <h2 class="h2">${esc(t.stepsTitle)}</h2>
-          <div class="steps">
-            ${map(d.steps, (s, i) => `<div class="step"><div class="n">${pad2(i)}</div><div class="t">${esc(s.title)}</div><div class="b">${esc(s.body)}</div></div>`)}
-          </div>
+    <section class="band-grey" data-screen-label="steps">
+      <div class="wrap steps-sec">
+        <h2 class="h2">${esc(t.stepsTitle)}</h2>
+        <div class="steps">
+          <div class="step-line" aria-hidden="true"><div><i></i></div><div><i></i></div></div>
+          ${map(d.steps, (s, i) => `<div class="step"><div class="n">${pad2(i)}</div><div class="t">${esc(s.title)}</div><div class="b">${esc(s.body)}</div></div>`)}
         </div>
-        <div>
-          <div class="rule-light"></div>
-          <div class="hw-head"><h2>${esc(t.hwTitle)}</h2><div>${esc(t.hwNote)}</div></div>
-          <div class="hw-grid">
-            ${map(d.hardware, (h, i) => `
-              <div class="hw">
-                <div class="hw-photo"><img src="assets/hw-${HW_PHOTOS[i]}.png" alt="${esc(h.name)}"></div>
-                <div><div class="hw-name">${esc(h.name)}</div><div class="hw-spec">${esc(h.spec)}</div></div>
-              </div>`)}
-          </div>
+      </div>
+    </section>`;
+  }
+
+  // Hardware: orange cards with cut-out product shots; the shot lifts and glows on hover (CSS only).
+  function hardware({ t, d }) {
+    return `
+    <section id="hardware" class="light" data-screen-label="hardware">
+      <div class="wrap hw-sec">
+        <div class="hw-head"><h2>${esc(t.hwTitle)}</h2><div>${esc(t.hwNote)}</div></div>
+        <div class="hw-grid">
+          ${map(d.hardware.slice(0, 5), (h, i) => `
+            <div class="hw-card${i < 3 ? '' : ' wide'}">
+              <div class="hw-glow"></div>
+              <div class="hw-shot"><img src="assets/hw-${HW_PHOTOS[i]}-cut.png" alt="${esc(h.name)}" loading="lazy"></div>
+              <div class="hw-text"><div class="hw-name">${esc(h.name)}</div><div class="hw-spec">${esc(h.spec)}</div></div>
+            </div>`)}
         </div>
       </div>
     </section>`;
@@ -419,7 +440,6 @@
     return `
     <section class="light" data-screen-label="integrations">
       <div class="wrap integrations">
-        <div class="rule-mid"></div>
         <div class="stack int-head">
           <div class="overline eyebrow">${esc(t.intTitle)}</div>
           <h2>${esc(t.intHeadline)}</h2>
@@ -592,9 +612,11 @@
     const v = ctx();
     document.documentElement.lang = v.l;
     document.documentElement.dir = v.ar ? 'rtl' : 'ltr';
-    document.title = v.ar ? 'إدكان POS' : 'Edukaan POS';
+    // Hindi and Urdu copy mixes scripts (e.g. "Edukaan POS" inside Urdu), so let each block pick its own direction.
+    document.documentElement.dataset.bidi = v.l === 'hi' || v.l === 'ur' ? 'mixed' : 'none';
+    document.title = v.l === 'ar' ? 'إدكان POS' : 'Edukaan POS';
     app.innerHTML = nav(v) + '<main>' + hero(v) + trusted(v) + features(v) + hub(v) + reporting(v) + wholesale(v)
-      + stepsHardware(v) + integrations(v) + pricing(v) + stories(v) + faq(v) + contact(v) + '</main>' + footer(v);
+      + steps(v) + hardware(v) + integrations(v) + pricing(v) + stories(v) + faq(v) + contact(v) + '</main>' + footer(v);
     ['f-name', 'f-phone'].forEach((id, i) => { if (kept[i]) document.getElementById(id).value = kept[i]; });
     renderPos();
     requestAnimationFrame(pickFeat);
@@ -607,14 +629,15 @@
   document.addEventListener('click', e => {
     const el = e.target.closest('[data-act]');
     if (!el) {
-      if (state.regionOpen && !e.target.closest('.region')) setState({ regionOpen: false });
+      if ((state.regionOpen || state.langOpen) && !e.target.closest('.region')) setState({ regionOpen: false, langOpen: false });
       return;
     }
     const i = Number(el.dataset.i);
     switch (el.dataset.act) {
-      case 'region': setState({ regionOpen: !state.regionOpen }); break;
+      case 'region': setState({ regionOpen: !state.regionOpen, langOpen: false }); break;
+      case 'langmenu': setState({ langOpen: !state.langOpen, regionOpen: false }); break;
       case 'country': setState({ country: el.dataset.cc, lang: null, regionOpen: false, feat: 0, openFaq: -1 }); break;
-      case 'lang': setState({ lang: el.dataset.l, regionOpen: false }); break;
+      case 'lang': setState({ lang: el.dataset.l, regionOpen: false, langOpen: false }); break;
       case 'feat-jump': {
         const el = document.querySelectorAll('.feat-step')[i];
         if (el) scrollTo({ top: el.getBoundingClientRect().top + scrollY - innerHeight * 0.15, behavior: 'smooth' });
@@ -625,7 +648,7 @@
   });
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && state.regionOpen) setState({ regionOpen: false });
+    if (e.key === 'Escape' && (state.regionOpen || state.langOpen)) setState({ regionOpen: false, langOpen: false });
   });
 
   // Call-back form: hand the details to WhatsApp so the team gets them straight away.

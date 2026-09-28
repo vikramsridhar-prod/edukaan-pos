@@ -6,11 +6,13 @@ const LOGO_KEYS = { 'Apple Pay': 'applepay', 'Samsung Pay': 'samsungpay', 'Amazo
 const LOGO_SRC = Object.fromEntries(['visa','mastercard','applepay','samsungpay','tamara','tabby','amazon','noon','tradeling','odoo','netsuite','sap','zatca','ingenico'].map(k => [k, 'assets/int-' + k + '.png']));
 const TRUSTED = [{ key: 'samsung', name: 'Samsung', src: 'assets/trusted-samsung.png' }, { key: 'huawei', name: 'Huawei', src: 'assets/trusted-huawei.png' }];
 
+const LANG_LABELS = {"en":"EN","ar":"عربي","hi":"हिंदी","ur":"اردو"};
+
 const COPY = {
   en: {
     names: { AE: 'United Arab Emirates', SA: 'Saudi Arabia' }, langName: 'English',
     base: {
-      navFeatures: 'Features', navHardware: 'Hardware', navPricing: 'Pricing', navFaq: 'FAQ', regionTitle: 'Choose your market',
+      langTitle: 'Language', navFeatures: 'Features', navHardware: 'Hardware', navPricing: 'Pricing', navFaq: 'FAQ', regionTitle: 'Choose your market',
       cta: 'Talk to us on WhatsApp', ctaShort: 'WhatsApp us', ctaNote: 'Replies within the hour',
       heroA: 'Built for the ', heroB: 'busy', heroC: ' counter.', posLine: 'Edukaan POS',
       scanHint: 'Scan barcode or search…', total: 'Total', paidLabel: 'Paid · receipt printed', payWith: 'Pay with', backedBy: 'Backed by',
@@ -43,7 +45,7 @@ const COPY = {
   ar: {
     names: { AE: 'الإمارات العربية المتحدة', SA: 'المملكة العربية السعودية' }, langName: 'العربية',
     base: {
-      navFeatures: 'المزايا', navHardware: 'الأجهزة', navPricing: 'الأسعار', navFaq: 'الأسئلة', regionTitle: 'اختر السوق',
+      langTitle: 'اللغة', navFeatures: 'المزايا', navHardware: 'الأجهزة', navPricing: 'الأسعار', navFaq: 'الأسئلة', regionTitle: 'اختر السوق',
       cta: 'تواصل معنا على واتساب', ctaShort: 'واتساب', ctaNote: 'نرد خلال ساعة',
       heroA: 'صُنع لساعات ', heroB: 'الذروة', heroC: ' على الكاشير.', posLine: 'إدكان POS · نظام نقاط البيع',
       scanHint: 'امسح الباركود أو ابحث…', total: 'الإجمالي', paidLabel: 'تم الدفع · طُبعت الفاتورة', payWith: 'الدفع بـ', backedBy: 'بدعم من',
@@ -72,6 +74,211 @@ const COPY = {
       footAddr: 'أكسيوم من تريدلينج · الرياض، السعودية',
       recBody: 'حدّد حداً أدنى لكل صنف. عندما ينخفض المخزون عنه، يُعدّ إدكان طلب الجملة من أكسيوم من تريدلينج؛ وافق بضغطة واحدة أو اجعله تلقائياً بالكامل. التوصيل في الرياض وجدة والدمام.', recSupplier: 'التوريد بالجملة من أكسيوم من تريدلينج',
     },
+  },
+  // Hindi and Urdu: only the strings below; anything missing falls back to English.
+  hi: {
+    names: {
+      AE: "संयुक्त अरब अमीरात",
+      SA: "सऊदी अरब"
+    },
+    langName: "हिंदी",
+    base: {
+      langTitle: "भाषा",
+      navFeatures: "फ़ीचर",
+      navHardware: "हार्डवेयर",
+      navPricing: "कीमत",
+      navFaq: "सवाल",
+      regionTitle: "अपना बाज़ार चुनें",
+      cta: "WhatsApp पर बात करें",
+      ctaShort: "WhatsApp करें",
+      ctaNote: "एक घंटे में जवाब",
+      heroA: "भीड़ वाले ",
+      heroB: "काउंटर",
+      heroC: " के लिए बना है।",
+      posLine: "Edukaan POS",
+      scanHint: "बारकोड स्कैन करें या खोजें…",
+      total: "कुल",
+      paidLabel: "भुगतान हुआ · रसीद छपी",
+      payWith: "भुगतान करें",
+      backedBy: "सहयोग से",
+      featTitle: "आपकी दुकान की हर ज़रूरत, एक स्क्रीन पर।",
+      featSub: "स्क्रॉल करें और देखें कि Edukaan पर काउंटर का दिन कैसे चलता है।",
+      hubOverline: "एक POS, सब काम",
+      hubTitle: "आपकी दुकान का हर हिस्सा काउंटर से चलता है।",
+      hubCore: "Edukaan POS",
+      hubCoreSub: "एक लॉगिन · एक स्टॉक · एक हिसाब",
+      replTitle: "ऑटोमैटिक री-स्टॉक",
+      replOn: "ऑटो",
+      repOverline: "रिपोर्टिंग",
+      repTitle: "जानिए क्या स्टॉक है, क्या बिकता है, क्या नहीं।",
+      repBody: "हर आइटम, हर ब्रांच, हर दिन का रेवेन्यू, मार्जिन और स्टॉक। Edukaan हर बिक्री को ऐसा आंकड़ा बनाता है जिस पर आप फ़ैसला ले सकें।",
+      repDash: "मालिक का डैशबोर्ड",
+      repRange: "पिछले 7 दिन",
+      repChart: "दैनिक रेवेन्यू",
+      repChartNote: "आज हाइलाइट में",
+      repTop: "सबसे ज़्यादा बिकने वाले",
+      repSlow: "धीमे बिकने वाले",
+      recOverline: "ऑटोमैटिक री-स्टॉक",
+      recTitle: "स्टॉक कम? ऑर्डर पहले ही हो गया।",
+      recHead: "आपको क्या मिलता है",
+      recSystems: "सिस्टम संभालने हैं",
+      recSetup: "सेटअप",
+      recSetupVal: "1 सेशन",
+      recContract: "कॉन्ट्रैक्ट",
+      recContractVal: "नहीं",
+      recThanks: "लोकल दुकान से खरीदने के लिए धन्यवाद",
+      stepsTitle: "एक सेशन में लाइव।",
+      hwTitle: "हार्डवेयर, डिलीवर और इंस्टॉल किया हुआ",
+      hwNote: "या अपना Android टैबलेट इस्तेमाल करें।",
+      intTitle: "इनके साथ काम करता है",
+      intPay: "पेमेंट इंटीग्रेशन",
+      intMarket: "मार्केटप्लेस इंटीग्रेशन",
+      intErp: "ERP इंटीग्रेशन",
+      intHeadline: "आपके मौजूदा पेमेंट, मार्केटप्लेस और ERP से जुड़ता है।",
+      priceTitle: "कीमत",
+      priceSub: "मुफ़्त शुरू करें। तब पैसे दें जब सिस्टम आपकी कमाई बढ़ा रहा हो।",
+      priceNote: "VAT अलग। हार्डवेयर अलग से बिकता या किराए पर मिलता है।",
+      priceBadge: "ज़्यादातर दुकानदार",
+      notIncluded: "शामिल नहीं",
+      faqTitle: "दुकानदार जो सवाल पूछते हैं",
+      contactTitle: "आपके काउंटर पर भीड़ लगाते हैं।",
+      formTitle: "या कॉल बैक मांगें",
+      fName: "आपका नाम",
+      fPhone: "WhatsApp नंबर",
+      fSend: "भेजें",
+      footBlurb: "Edukaan, Tradeling Group का POS है, जो इस क्षेत्र का सोर्सिंग और डिस्ट्रीब्यूशन का B2B प्लैटफ़ॉर्म है।",
+      footGroup: "Tradeling Group का ब्रांड",
+      footContact: "संपर्क",
+      footRights: "सर्वाधिकार सुरक्षित।",
+      footPrivacy: "प्राइवेसी पॉलिसी",
+      trustedBy: "इनका भरोसा"
+    },
+    AE: {
+      countryTag: "UAE",
+      heroSub: "छोटे दुकानदारों के लिए POS: चेकआउट, स्टॉक, BNPL और मार्केटप्लेस ऑर्डर एक सिस्टम में। UAE VAT के अनुसार, ऑफ़लाइन भी चलता है।",
+      saleNo: "बिक्री #4821",
+      saleMeta: "Al Barsha · काउंटर 2",
+      vatLine: "VAT 5% सहित",
+      compFoot: "FTA टैक्स इनवॉइस तैयार",
+      lowStock: "स्टॉक कम · Al Ain 500ml",
+      reorder: "Tradeling से दोबारा ऑर्डर",
+      recBody: "हर आइटम की न्यूनतम मात्रा तय करें। स्टॉक उससे नीचे जाए तो Edukaan Tradeling से होलसेल ऑर्डर तैयार करता है; एक टैप में मंज़ूरी दें या पूरा ऑटोमैटिक चलाएं। दुबई, शारजाह और अबू धाबी में अगले दिन डिलीवरी।",
+      recSupplier: "होलसेल सप्लाई Tradeling से"
+    },
+    SA: {
+      countryTag: "KSA",
+      heroSub: "इलेक्ट्रॉनिक्स दुकानदारों के लिए POS: चेकआउट, IMEI ट्रैकिंग, BNPL और मार्केटप्लेस ऑर्डर एक सिस्टम में। ZATCA फ़ेज़ 2 बिल्ट-इन, ऑफ़लाइन भी चलता है।",
+      saleNo: "बिक्री #4821",
+      saleMeta: "Olaya · काउंटर 2",
+      vatLine: "VAT 15% सहित",
+      compFoot: "ZATCA ई-इनवॉइस · QR तैयार",
+      lowStock: "स्टॉक कम · 25W चार्जर",
+      reorder: "Axiom से दोबारा ऑर्डर",
+      recBody: "हर आइटम की न्यूनतम मात्रा तय करें। स्टॉक उससे नीचे जाए तो Edukaan Axiom by Tradeling से होलसेल ऑर्डर तैयार करता है; एक टैप में मंज़ूरी दें या पूरा ऑटोमैटिक चलाएं। रियाद, जेद्दा और दम्माम में डिलीवरी।",
+      recSupplier: "होलसेल सप्लाई Axiom by Tradeling से"
+    }
+  },
+  ur: {
+    names: {
+      AE: "متحدہ عرب امارات",
+      SA: "سعودی عرب"
+    },
+    langName: "اردو",
+    base: {
+      langTitle: "زبان",
+      navFeatures: "خصوصیات",
+      navHardware: "ہارڈویئر",
+      navPricing: "قیمت",
+      navFaq: "سوالات",
+      regionTitle: "اپنی مارکیٹ منتخب کریں",
+      cta: "WhatsApp پر بات کریں",
+      ctaShort: "WhatsApp کریں",
+      ctaNote: "ایک گھنٹے میں جواب",
+      heroA: "مصروف ",
+      heroB: "کاؤنٹر",
+      heroC: " کے لیے بنایا گیا۔",
+      posLine: "Edukaan POS",
+      scanHint: "بارکوڈ اسکین کریں یا تلاش کریں…",
+      total: "کل",
+      paidLabel: "ادائیگی ہو گئی · رسید چھپ گئی",
+      payWith: "ادائیگی کریں",
+      backedBy: "تعاون سے",
+      featTitle: "آپ کی دکان کی ہر ضرورت، ایک اسکرین پر۔",
+      featSub: "اسکرول کریں اور دیکھیں کہ Edukaan پر کاؤنٹر کا دن کیسے چلتا ہے۔",
+      hubOverline: "ایک POS، سب کام",
+      hubTitle: "آپ کی دکان کا ہر حصہ کاؤنٹر سے چلتا ہے۔",
+      hubCore: "Edukaan POS",
+      hubCoreSub: "ایک لاگ اِن · ایک اسٹاک · ایک حساب",
+      replTitle: "خودکار ری اسٹاک",
+      replOn: "آٹو",
+      repOverline: "رپورٹنگ",
+      repTitle: "جانیں کیا اسٹاک ہے، کیا بکتا ہے، کیا نہیں۔",
+      repBody: "ہر آئٹم، ہر برانچ، ہر دن کی آمدنی، مارجن اور اسٹاک۔ Edukaan ہر فروخت کو ایسا نمبر بناتا ہے جس پر آپ فیصلہ کر سکیں۔",
+      repDash: "مالک کا ڈیش بورڈ",
+      repRange: "پچھلے 7 دن",
+      repChart: "روزانہ آمدنی",
+      repChartNote: "آج نمایاں",
+      repTop: "سب سے زیادہ بکنے والے",
+      repSlow: "آہستہ بکنے والے",
+      recOverline: "خودکار ری اسٹاک",
+      recTitle: "اسٹاک کم؟ آرڈر پہلے ہی ہو گیا۔",
+      recHead: "آپ کو کیا ملتا ہے",
+      recSystems: "سسٹم سنبھالنے ہیں",
+      recSetup: "سیٹ اپ",
+      recSetupVal: "1 سیشن",
+      recContract: "کانٹریکٹ",
+      recContractVal: "نہیں",
+      recThanks: "مقامی دکان سے خریدنے کا شکریہ",
+      stepsTitle: "ایک سیشن میں لائیو۔",
+      hwTitle: "ہارڈویئر، ڈیلیور اور انسٹال شدہ",
+      hwNote: "یا اپنا Android ٹیبلٹ استعمال کریں۔",
+      intTitle: "ان کے ساتھ کام کرتا ہے",
+      intPay: "پیمنٹ انٹیگریشن",
+      intMarket: "مارکیٹ پلیس انٹیگریشن",
+      intErp: "ERP انٹیگریشن",
+      intHeadline: "آپ کے موجودہ پیمنٹ، مارکیٹ پلیس اور ERP سے جڑتا ہے۔",
+      priceTitle: "قیمت",
+      priceSub: "مفت شروع کریں۔ تب پیسے دیں جب سسٹم آپ کی کمائی بڑھا رہا ہو۔",
+      priceNote: "VAT الگ۔ ہارڈویئر الگ سے فروخت یا کرائے پر۔",
+      priceBadge: "زیادہ تر دکاندار",
+      notIncluded: "شامل نہیں",
+      faqTitle: "دکاندار جو سوال پوچھتے ہیں",
+      contactTitle: "آپ کے کاؤنٹر کو مصروف کرتے ہیں۔",
+      formTitle: "یا کال بیک مانگیں",
+      fName: "آپ کا نام",
+      fPhone: "WhatsApp نمبر",
+      fSend: "بھیجیں",
+      footBlurb: "Edukaan، Tradeling Group کا POS ہے، جو اس خطے کا سورسنگ اور ڈسٹری بیوشن کا B2B پلیٹ فارم ہے۔",
+      footGroup: "Tradeling Group کا برانڈ",
+      footContact: "رابطہ",
+      footRights: "جملہ حقوق محفوظ ہیں۔",
+      footPrivacy: "پرائیویسی پالیسی",
+      trustedBy: "ان کا بھروسا"
+    },
+    AE: {
+      countryTag: "UAE",
+      heroSub: "چھوٹے دکانداروں کے لیے POS: چیک آؤٹ، اسٹاک، BNPL اور مارکیٹ پلیس آرڈر ایک سسٹم میں۔ UAE VAT کے مطابق، آف لائن بھی چلتا ہے۔",
+      saleNo: "فروخت #4821",
+      saleMeta: "Al Barsha · کاؤنٹر 2",
+      vatLine: "VAT 5% شامل",
+      compFoot: "FTA ٹیکس انوائس تیار",
+      lowStock: "اسٹاک کم · Al Ain 500ml",
+      reorder: "Tradeling سے دوبارہ آرڈر",
+      recBody: "ہر آئٹم کی کم سے کم مقدار طے کریں۔ اسٹاک اس سے نیچے جائے تو Edukaan Tradeling سے ہول سیل آرڈر تیار کرتا ہے؛ ایک ٹیپ میں منظوری دیں یا پورا خودکار چلائیں۔ دبئی، شارجہ اور ابوظہبی میں اگلے دن ڈیلیوری۔",
+      recSupplier: "ہول سیل سپلائی Tradeling سے"
+    },
+    SA: {
+      countryTag: "KSA",
+      heroSub: "الیکٹرانکس دکانداروں کے لیے POS: چیک آؤٹ، IMEI ٹریکنگ، BNPL اور مارکیٹ پلیس آرڈر ایک سسٹم میں۔ ZATCA فیز 2 بلٹ اِن، آف لائن بھی چلتا ہے۔",
+      saleNo: "فروخت #4821",
+      saleMeta: "Olaya · کاؤنٹر 2",
+      vatLine: "VAT 15% شامل",
+      compFoot: "ZATCA ای انوائس · QR تیار",
+      lowStock: "اسٹاک کم · 25W چارجر",
+      reorder: "Axiom سے دوبارہ آرڈر",
+      recBody: "ہر آئٹم کی کم سے کم مقدار طے کریں۔ اسٹاک اس سے نیچے جائے تو Edukaan Axiom by Tradeling سے ہول سیل آرڈر تیار کرتا ہے؛ ایک ٹیپ میں منظوری دیں یا پورا خودکار چلائیں۔ ریاض، جدہ اور دمام میں ڈیلیوری۔",
+      recSupplier: "ہول سیل سپلائی Axiom by Tradeling سے"
+    }
   },
 };
 
@@ -239,5 +446,130 @@ const DATA = {
         { q: 'هل يوجد عقد؟', a: 'لا. خطط شهرية، إلغاء في أي وقت. الأجهزة تُشترى أو تُؤجّر.' },
       ],
     },
+  },
+  // Hindi and Urdu: only steps and FAQ are translated; every other DATA list falls back to English.
+  hi: {
+    steps: [
+      {
+        title: "कनेक्ट करें",
+        body: "प्रिंटर, स्कैनर, ड्रॉअर, कार्ड टर्मिनल।"
+      },
+      {
+        title: "इम्पोर्ट करें",
+        body: "आपका कैटलॉग, Tradeling से या फ़ाइल से।"
+      },
+      {
+        title: "बेचें",
+        body: "उसी दोपहर पहली बिक्री।"
+      }
+    ],
+    faq: {
+      AE: [
+        {
+          q: "क्या यह UAE VAT के अनुसार है?",
+          a: "हाँ। हर बिक्री पर आपके TRN के साथ FTA-अनुसार टैक्स इनवॉइस बनता है; VAT रिपोर्ट फ़ाइलिंग के लिए एक्सपोर्ट होती है। टूरिस्ट रिफ़ंड भी सपोर्टेड है।"
+        },
+        {
+          q: "इंटरनेट चला जाए तो चलता है?",
+          a: "हाँ। बिक्री ऑफ़लाइन चलती रहती है और कनेक्ट होने पर सिंक हो जाती है।"
+        },
+        {
+          q: "क्या मैं अपना प्रिंटर और स्कैनर रख सकता हूँ?",
+          a: "ज़्यादातर 80mm थर्मल प्रिंटर और USB या Bluetooth स्कैनर चलते हैं। ऑनबोर्डिंग में हम जांच लेते हैं।"
+        },
+        {
+          q: "होलसेल री-ऑर्डर कैसे काम करता है?",
+          a: "कम स्टॉक के अलर्ट Tradeling होलसेल से जुड़े हैं। काउंटर पर कन्फ़र्म करें; दुबई, शारजाह और अबू धाबी में अगले दिन डिलीवरी।"
+        },
+        {
+          q: "कोई कॉन्ट्रैक्ट है?",
+          a: "नहीं। मासिक प्लान, कभी भी बंद करें। हार्डवेयर खरीद या किराए पर ले सकते हैं।"
+        }
+      ],
+      SA: [
+        {
+          q: "क्या यह ZATCA फ़ेज़ 2 के अनुसार है?",
+          a: "हाँ। QR कोड वाले Fatoora-अनुसार ई-इनवॉइस; ZATCA के साथ क्लियरेंस और रिपोर्टिंग अपने आप होती है।"
+        },
+        {
+          q: "क्या यह IMEI और सीरियल ट्रैक करता है?",
+          a: "हर डिवाइस माल आने पर और बिक्री पर स्कैन होता है, वारंटी तारीख के साथ।"
+        },
+        {
+          q: "कौन-कौन से पेमेंट तरीके?",
+          a: "mada, कार्ड, STC Pay, Tabby और Tamara किस्तें, कैश और स्प्लिट पेमेंट।"
+        },
+        {
+          q: "सऊदी अरब में स्टॉक कौन देता है?",
+          a: "Axiom by Tradeling, ग्रुप का KSA में डिस्ट्रीब्यूशन ब्रांड, रियाद, जेद्दा और दम्माम में डिलीवरी के साथ।"
+        },
+        {
+          q: "कोई कॉन्ट्रैक्ट है?",
+          a: "नहीं। मासिक प्लान, कभी भी बंद करें। हार्डवेयर खरीद या किराए पर ले सकते हैं।"
+        }
+      ]
+    }
+  },
+  ur: {
+    steps: [
+      {
+        title: "کنیکٹ کریں",
+        body: "پرنٹر، اسکینر، ڈراور، کارڈ ٹرمینل۔"
+      },
+      {
+        title: "امپورٹ کریں",
+        body: "آپ کا کیٹلاگ، Tradeling سے یا فائل سے۔"
+      },
+      {
+        title: "بیچیں",
+        body: "اسی دوپہر پہلی فروخت۔"
+      }
+    ],
+    faq: {
+      AE: [
+        {
+          q: "کیا یہ UAE VAT کے مطابق ہے؟",
+          a: "جی ہاں۔ ہر فروخت پر آپ کے TRN کے ساتھ FTA کے مطابق ٹیکس انوائس بنتی ہے؛ VAT رپورٹ فائلنگ کے لیے ایکسپورٹ ہوتی ہے۔ ٹورسٹ ریفنڈ بھی سپورٹڈ ہے۔"
+        },
+        {
+          q: "انٹرنیٹ چلا جائے تو چلتا ہے؟",
+          a: "جی ہاں۔ فروخت آف لائن جاری رہتی ہے اور کنیکٹ ہونے پر سنک ہو جاتی ہے۔"
+        },
+        {
+          q: "کیا میں اپنا پرنٹر اور اسکینر رکھ سکتا ہوں؟",
+          a: "زیادہ تر 80mm تھرمل پرنٹر اور USB یا Bluetooth اسکینر چلتے ہیں۔ آن بورڈنگ میں ہم چیک کر لیتے ہیں۔"
+        },
+        {
+          q: "ہول سیل ری آرڈر کیسے کام کرتا ہے؟",
+          a: "کم اسٹاک کے الرٹ Tradeling ہول سیل سے جڑے ہیں۔ کاؤنٹر پر کنفرم کریں؛ دبئی، شارجہ اور ابوظہبی میں اگلے دن ڈیلیوری۔"
+        },
+        {
+          q: "کوئی کانٹریکٹ ہے؟",
+          a: "نہیں۔ ماہانہ پلان، کبھی بھی بند کریں۔ ہارڈویئر خرید یا کرائے پر لے سکتے ہیں۔"
+        }
+      ],
+      SA: [
+        {
+          q: "کیا یہ ZATCA فیز 2 کے مطابق ہے؟",
+          a: "جی ہاں۔ QR کوڈ والی Fatoora کے مطابق ای انوائس؛ ZATCA کے ساتھ کلیئرنس اور رپورٹنگ خود بخود ہوتی ہے۔"
+        },
+        {
+          q: "کیا یہ IMEI اور سیریل ٹریک کرتا ہے؟",
+          a: "ہر ڈیوائس مال آنے پر اور فروخت پر اسکین ہوتی ہے، وارنٹی تاریخ کے ساتھ۔"
+        },
+        {
+          q: "کون کون سے پیمنٹ طریقے؟",
+          a: "mada، کارڈ، STC Pay، Tabby اور Tamara قسطیں، کیش اور اسپلٹ پیمنٹ۔"
+        },
+        {
+          q: "سعودی عرب میں اسٹاک کون دیتا ہے؟",
+          a: "Axiom by Tradeling، گروپ کا KSA میں ڈسٹری بیوشن برانڈ، ریاض، جدہ اور دمام میں ڈیلیوری کے ساتھ۔"
+        },
+        {
+          q: "کوئی کانٹریکٹ ہے؟",
+          a: "نہیں۔ ماہانہ پلان، کبھی بھی بند کریں۔ ہارڈویئر خرید یا کرائے پر لے سکتے ہیں۔"
+        }
+      ]
+    }
   },
 };

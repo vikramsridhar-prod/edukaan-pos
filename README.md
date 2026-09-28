@@ -10,7 +10,7 @@ This is a static site with no build step: plain HTML, CSS and JavaScript.
 | `styles.css` | All styles and colour tokens |
 | `content.js` | Every piece of copy and demo data for EN/AR × UAE/KSA. Edit text here. |
 | `app.js` | Rendering, the market and language switches, the feature scroll story, the FAQ, the animated POS demo, and the call-back form |
-| `assets/` | Brand logos, hardware photos (`hw-*`) and integration logos (`int-*`) |
+| `assets/` | Brand logos, hardware cut-out photos (`hw-*-cut.png`) and integration logos (`int-*`) |
 
 ## Run locally
 
@@ -23,7 +23,7 @@ Then open http://localhost:8765.
 ## URL options
 
 - `?country=SA` opens the page for the KSA market. Arabic is the default for KSA.
-- `?lang=ar` or `?lang=en` forces a language.
+- `?lang=en`, `?lang=ar`, `?lang=hi` (Hindi) or `?lang=ur` (Urdu) forces a language. Hindi and Urdu fall back to English for anything not yet translated.
 - `?demo=0` freezes the hero POS animation. The animation is also off when the visitor has "reduce motion" turned on.
 - `?pricing=0` hides the pricing section.
 
