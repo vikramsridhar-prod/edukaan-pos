@@ -1,672 +1,420 @@
-// Edukaan POS landing page — renders COPY / DATA (content.js) for the chosen market (AE / SA) and language (en / ar / hi / ur).
-// URL options: ?country=SA  ?lang=ar|hi|ur  ?demo=0 (freeze the hero POS animation)  ?pricing=0 (hide pricing)
+// Edukaan POS landing page.
+// template.js holds the design's markup verbatim ({{ }} bindings, <sc-if>, <sc-for>); content.js holds its copy
+// and data. This file renders that template and ports the design's Component logic (state, derived values, effects).
+// URL options: ?country=SA  ?lang=en|ar|hi|ur  ?pricing=0 (hide pricing)
 (function () {
   'use strict';
 
   const LANGS = ['en', 'ar', 'hi', 'ur'];
+  const WHATSAPP = '97144910000';
   const params = new URLSearchParams(location.search);
-  const reducedMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const config = {
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const props = {
     country: params.get('country') === 'SA' ? 'SA' : 'AE',
     lang: LANGS.includes(params.get('lang')) ? params.get('lang') : 'auto',
-    animateDemo: params.has('demo') ? params.get('demo') !== '0' : !reducedMotion,
     showPricing: params.get('pricing') !== '0',
   };
-  const WHATSAPP = '97144910000';
 
-  // Hero background photo per market. The design has empty image slots for these;
-  // drop a file into assets/ and set its path here (e.g. 'assets/hero-ae.jpg') to show it.
-  const HERO_PHOTOS = { AE: null, SA: null };
-  const TRUSTED_LOGOS = [
-    { file: 'trusted-samsung.svg', name: 'Samsung', size: 'width:140px' },
-    { file: 'trusted-huawei.png', name: 'Huawei', size: 'height:56px' },
-    { file: 'trusted-nokia.svg', name: 'Nokia', size: 'width:120px' },
-    { file: 'trusted-mycandy.svg', name: 'My Candy', size: 'height:52px' },
-    { file: 'trusted-switch.svg', name: 'Switch', size: 'width:112px' },
-  ];
-  const HW_PHOTOS = ['terminal', 'printer', 'scanner', 'drawer', 'card'];
-  // Integration logos per column; `only` limits a logo to one market.
-  const INTEGRATIONS = {
-    pay: [
-      { key: 'mada', name: 'mada', only: 'SA' },
-      { key: 'network', name: 'Network International', only: 'AE' },
-      { key: 'magnati', name: 'Magnati', only: 'AE' },
-      { key: 'visa', name: 'Visa' },
-      { key: 'mastercard', name: 'Mastercard' },
-      { key: 'applepay', name: 'Apple Pay' },
-      { key: 'samsungpay', name: 'Samsung Pay', only: 'AE' },
-      { key: 'tamara', name: 'Tamara' },
-      { key: 'tabby', name: 'Tabby' },
-    ],
-    market: [
-      { key: 'amazon', name: 'Amazon' },
-      { key: 'noon', name: 'Noon', bg: '#feee00' },
-      { key: 'tradeling', name: 'Tradeling' },
-    ],
-    erp: [
-      { key: 'odoo', name: 'Odoo' },
-      { key: 'netsuite', name: 'Oracle NetSuite' },
-      { key: 'sap', name: 'SAP' },
-      { key: 'zatca', name: 'ZATCA', only: 'SA' },
-      { key: 'dynamics', name: 'Microsoft Dynamics 365' },
-    ],
-  };
+  // ---------------------------------------------------------------------------
+  // Template renderer: builds DOM from the template with a scope, then morphs it into the page so
+  // elements keep their identity (scroll positions, effect-driven inline styles) across renders.
+  // ---------------------------------------------------------------------------
 
-  const state = { country: null, lang: null, openFaq: -1, feat: 0, regionOpen: false, langOpen: false, tick: 0, posIn: false };
-  const app = document.getElementById('app');
+  const tplEl = document.createElement('template');
+  tplEl.innerHTML = window.EDUKAAN_TEMPLATE;
+  const SKIP_ATTRS = /^(hint-|style-(hover|focus|active)$)/;
+  const EXPR = /\{\{\s*([^}]+?)\s*\}\}/g;
+  const ONLY_EXPR = /^\s*\{\{\s*([^}]+?)\s*\}\}\s*$/;
 
-  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const map = (list, fn) => list.map(fn).join('');
-  const pad2 = i => String(i + 1).padStart(2, '0');
+  // style-hover / style-focus / style-active become generated CSS classes (inline styles need !important to lose).
+  const pseudoClass = new WeakMap();
+  (function buildPseudoCss() {
+    let n = 0, css = '';
+    tplEl.content.querySelectorAll('*').forEach(el => {
+      const rules = [['hover', ':hover'], ['focus', ':focus'], ['active', ':active']].filter(([k]) => el.hasAttribute('style-' + k));
+      if (!rules.length) return;
+      const cls = 'dx' + n++;
+      pseudoClass.set(el, cls);
+      for (const [k, sel] of rules) {
+        const decls = el.getAttribute('style-' + k).split(';').map(s => s.trim()).filter(Boolean)
+          .map(d => d.replace(/\s*!important\s*$/, '') + ' !important').join(';');
+        css += `.${cls}${sel}{${decls}}\n`;
+      }
+    });
+    const s = document.createElement('style');
+    s.textContent = css;
+    document.head.appendChild(s);
+  })();
 
-  const country = () => state.country ?? config.country;
-  const lang = () => {
-    if (state.lang) return state.lang;
-    if (config.lang !== 'auto') return config.lang;
-    return country() === 'SA' ? 'ar' : 'en';
-  };
+  function lookup(path, scope) {
+    if (path === 'true') return true;
+    if (path === 'false') return false;
+    const [head, ...rest] = path.split('.');
+    let v = scope[head];
+    for (const k of rest) v = v == null ? undefined : v[k];
+    return v;
+  }
+  const raw = (value, scope) => { const m = ONLY_EXPR.exec(value); return m ? lookup(m[1], scope) : value; };
+  const interp = (value, scope) => value.replace(EXPR, (_, p) => { const v = lookup(p, scope); return v == null || v === false ? '' : String(v); });
 
-  // Hindi and Urdu only translate part of the copy and data, so every language is layered over English.
-  // `ar` means right-to-left (Arabic and Urdu); only Arabic uses Arabic currency symbols.
-  function ctx() {
+  function build(nodes, scope, out) {
+    for (const node of nodes) {
+      if (node.nodeType === 3) {
+        const m = ONLY_EXPR.exec(node.nodeValue);
+        const v = m ? lookup(m[1], scope) : null;
+        if (v && v.html !== undefined) {
+          const t = document.createElement('template');
+          t.innerHTML = v.html;
+          for (const c of t.content.childNodes) out.push(markStatic(c));
+        } else {
+          out.push(document.createTextNode(interp(node.nodeValue, scope)));
+        }
+        continue;
+      }
+      if (node.nodeType !== 1) continue;
+      const tag = node.localName;
+      if (tag === 'sc-if') { if (raw(node.getAttribute('value'), scope)) build(node.childNodes, scope, out); continue; }
+      if (tag === 'sc-for') {
+        const list = raw(node.getAttribute('list'), scope) || [];
+        const as = node.getAttribute('as');
+        list.forEach((item, i) => build(node.childNodes, { ...scope, [as]: item, $index: i }, out));
+        continue;
+      }
+      if (tag === 'x-import') continue; // design image-slot placeholder (empty story avatar)
+      out.push(buildElement(node, scope));
+    }
+    return out;
+  }
+
+  // Elements parsed from an {html} value: record their attributes so morph can diff them like template elements.
+  function markStatic(node) {
+    if (node.nodeType !== 1) return node;
+    node.__last = {}; node.__h = {};
+    for (const a of node.attributes) node.__last[a.name] = a.value;
+    node.childNodes.forEach(markStatic);
+    return node;
+  }
+
+  function buildElement(node, scope) {
+    const el = document.createElementNS(node.namespaceURI, node.localName);
+    el.__last = {};
+    el.__h = {};
+    for (const a of node.attributes) {
+      if (/^on[a-z]+$/.test(a.name)) {
+        const fn = raw(a.value, scope);
+        if (typeof fn === 'function') el.__h[a.name.slice(2)] = fn;
+        continue;
+      }
+      if (a.name === 'ref') { el.__ref = raw(a.value, scope); continue; }
+      if (SKIP_ATTRS.test(a.name)) continue;
+      let v = interp(a.value, scope);
+      if (a.name === 'class' && pseudoClass.has(node)) v += ' ' + pseudoClass.get(node);
+      el.__last[a.name] = v;
+      el.setAttribute(a.name, v);
+    }
+    if (pseudoClass.has(node) && !node.hasAttribute('class')) {
+      el.__last.class = pseudoClass.get(node);
+      el.setAttribute('class', el.__last.class);
+    }
+    for (const type of Object.keys(el.__h)) listen(el, type);
+    if (el.__ref) el.__ref.current = el;
+    for (const child of build(node.childNodes, scope, [])) el.appendChild(child);
+    return el;
+  }
+
+  // One real listener per element and event type; it calls whichever handler the latest render bound.
+  function listen(el, type) {
+    el.__on = el.__on || {};
+    if (el.__on[type]) return;
+    el.__on[type] = true;
+    el.addEventListener(type, e => el.__h[type] && el.__h[type](e), type === 'scroll' ? { passive: true } : undefined);
+  }
+
+  const sameKind = (a, b) => a.nodeType === b.nodeType && (a.nodeType !== 1 || (a.localName === b.localName && a.namespaceURI === b.namespaceURI));
+
+  function morph(oldEl, newEl) {
+    // Only touch attributes this renderer set, so effect-driven inline styles survive unless the template value changed.
+    const last = oldEl.__last || {};
+    for (const [k, v] of Object.entries(newEl.__last)) if (last[k] !== v) oldEl.setAttribute(k, v);
+    for (const k of Object.keys(last)) if (!(k in newEl.__last)) oldEl.removeAttribute(k);
+    oldEl.__last = newEl.__last;
+    oldEl.__h = newEl.__h;
+    for (const type of Object.keys(newEl.__h)) listen(oldEl, type);
+    if (newEl.__ref) { oldEl.__ref = newEl.__ref; newEl.__ref.current = oldEl; }
+    morphChildren(oldEl, [...newEl.childNodes]);
+  }
+
+  function morphChildren(parent, next) {
+    const prev = [...parent.childNodes];
+    next.forEach((n, i) => {
+      const o = prev[i];
+      if (!o) parent.appendChild(n);
+      else if (!sameKind(o, n)) parent.replaceChild(n, o);
+      else if (n.nodeType === 1) { if (o.__last) morph(o, n); else parent.replaceChild(n, o); }
+      else if (o.nodeValue !== n.nodeValue) o.nodeValue = n.nodeValue;
+    });
+    for (let i = next.length; i < prev.length; i++) prev[i].remove();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Component: state + derived values (port of the design's renderVals / _rv).
+  // ---------------------------------------------------------------------------
+
+  const state = { country: null, lang: null, openFaq: 0, regionOpen: false, langOpen: false, shopOpen: false, shop: null, cmpOpen: false, chartTab: 'rev', velHover: -1, hwHover: -1, navSolid: false, replIn: false, sStart: true, sEnd: false };
+  const refs = { hw: { current: null }, hwTrack: { current: null }, hwBar: { current: null }, story: { current: null }, repl: { current: null }, shop: { current: null } };
+  const featRefs = Array.from({ length: 6 }, () => ({ current: null }));
+
+  const country = () => state.country ?? props.country;
+  const lang = () => state.lang || (props.lang !== 'auto' ? props.lang : country() === 'SA' ? 'ar' : 'en');
+
+  // Animated line joining the three setup steps (two halves, each with a moving highlight).
+  function stepLine(rtl) {
+    const seg = (left, delay) => `<div style="position:absolute;top:0;bottom:0;left:${left};width:50%;overflow:hidden;transform:${rtl ? 'scaleX(-1)' : 'none'}"><div style="position:absolute;top:0;bottom:0;left:0;width:40%;background:linear-gradient(90deg,rgba(79,220,133,0) 0%,#4FDC85 50%,rgba(79,220,133,0) 100%);animation:stepFlow 2.8s cubic-bezier(.45,0,.55,1) ${delay}s infinite"></div></div>`;
+    return { html: `<div style="position:absolute;inset:0;background:#dcdee0">${seg('0%', 0)}${seg('50%', 1.4)}</div>` };
+  }
+
+  function storyGo(n) {
+    const el = refs.story.current; if (!el) return;
+    const card = el.firstElementChild;
+    const w = card ? card.getBoundingClientRect().width + 24 : el.clientWidth;
+    const rtl = getComputedStyle(el).direction === 'rtl';
+    el.scrollBy({ left: n * w * (rtl ? -1 : 1), behavior: 'smooth' });
+  }
+  function storyScroll() {
+    const el = refs.story.current; if (!el) return;
+    const x = Math.abs(el.scrollLeft);
+    const s = x < 4, e = x + el.clientWidth >= el.scrollWidth - 4;
+    if (s !== state.sStart || e !== state.sEnd) setState({ sStart: s, sEnd: e });
+  }
+
+  function vals() {
     const c = country(), l = lang(), sa = c === 'SA', ar = l === 'ar' || l === 'ur';
+    const cur = l === 'ar' ? (sa ? 'ر.س' : 'د.إ') : (sa ? 'SAR' : 'AED');
     const CL = COPY[l] || COPY.en;
+    const t = { ...COPY.en.base, ...COPY.en[c], ...CL.base, ...CL[c] };
+    const d = { ...DATA.en, ...(DATA[l] || {}) };
+    const langs = LANGS.map(k => { const on = k === l; return { key: k, label: LANG_LABELS[k], active: on, bg: on ? '#E9FAF0' : 'transparent', pick: () => setState({ lang: k, langOpen: false }) }; });
+    const countries = ['AE', 'SA'].map(cc => ({ name: COUNTRY_NAMES[cc], flag: FLAGS[cc], ae: cc === 'AE', sa: cc === 'SA', active: cc === c, bg: cc === c ? '#E9FAF0' : 'transparent', pick: () => setState({ country: cc, lang: null, regionOpen: false, openFaq: 0, shop: null }) }));
+    const faqs = d.faq[c].map((f, i) => ({ ...f, border: i === 0 ? 'none' : '1px solid #d3d4d6', open: state.openFaq === i, sign: state.openFaq === i ? '−' : '+', toggle: () => setState({ openFaq: state.openFaq === i ? -1 : i }) }));
+    const nf = d.features[c].length;
+    const features = d.features[c].map((f, i) => ({
+      ...f, chips: f.chips || [], stat: f.stat || '', statLabel: f.statLabel || '', mini: f.mini || [], badge: f.badge || '', tiles: f.tiles || [],
+      n: String(i + 1).padStart(2, '0'), total: String(nf).padStart(2, '0'), stickyTop: (96 + i * 28) + 'px', stickyMb: ((nf - 1 - i) * 28) + 'px',
+      ...(i === nf - 1 ? { cardBg: '#091233', fg: '#fff', muted: '#C3CBE8', pillBg: '#1E2A5A', rule: '#2A3666' } : { cardBg: '#f3f4f5', fg: '#1b1c1d', muted: '#505153', pillBg: '#fff', rule: '#dcdee0' }),
+      ref: featRefs[i],
+    }));
+    const plans = d.plans.map((p, i) => {
+      const hi = i === 1;
+      return { ...p, price: p.price ? `${cur} ${p.price}` : p.priceLabel, hasExcluded: !!(p.excluded && p.excluded.length), excluded: p.excluded || [], lead: p.lead || null, keyItems: p.items.slice(0, 4), per: p.price ? p.desc.split(' · ')[0] : null, desc: p.price ? p.desc.split(' · ').slice(1).join(' · ') : p.desc, popular: hi ? (t.priceBadgePopular || 'Most popular') : null, outerPad: hi ? '0 4px 4px' : '0', outerMt: hi ? '0' : '36px', outerBg: hi ? 'linear-gradient(180deg,#FFD866 0%,#FCB808 55%,#C98F00 100%)' : 'transparent', outerShadow: hi ? '0 24px 48px -24px rgba(252,184,8,.45)' : 'none', innerBorder: hi ? 'transparent' : '#e6e8ea', innerShadow: hi ? 'none' : '0 1px 2px rgba(8,9,10,.05),0 16px 32px -24px rgba(8,9,10,.18)', colBg: hi ? '#FFFAEB' : 'transparent', btnBg: hi ? '#FCB808' : '#fff', btnFg: hi ? '#021B18' : '#1b1c1d', btnBorder: hi ? '#FCB808' : '#d3d4d6', btnSize: '16px', badge: null };
+    });
+    const Y = true, N = false;
+    const cmpData = [
+      { name: 'Outlets & users', rows: [['Outlets', '1', 'Up to 10', 'Unlimited'], ['Users', 'Up to 3', 'Up to 30', 'Unlimited'], ['Installations', '1 register', 'Per outlet', 'Unlimited']] },
+      { name: 'Selling', rows: [['Catalogue, search & cart', Y, Y, Y], ['IMEI & serial capture', Y, Y, Y], ['Cash payments', Y, Y, Y], ['Integrated payment terminal', N, Y, Y], ['BNPL — Tabby & Tamara', N, Y, Y], ['Promotions, VAS & loyalty', N, Y, Y]] },
+      { name: 'Stock & channels', rows: [['Real-time stock', 'One outlet', 'All outlets', 'All outlets'], ['Marketplace integrations', N, '2 channels', 'Unlimited'], ['Smart replenishment from Tradeling', N, Y, Y], ['AI recommendations & auto-cataloguing', N, Y, Y]] },
+      { name: 'Finance & reporting', rows: [['Tax-compliant invoicing', Y, Y, Y], ['Accounting module', 'Basic', 'Advanced', 'Advanced'], ['Reports', 'Standard', 'Advanced analytics', 'Advanced analytics'], ['QFunder credit line', N, N, Y]] },
+      { name: 'Integrations & support', rows: [['Custom & ERP integrations, open API', N, N, Y], ['Custom development', N, N, Y], ['Data migration', N, N, 'White-glove'], ['Support', 'Email', 'Priority, extended hours', 'Dedicated CSM · SLA']] },
+    ];
+    const cmpGroups = cmpData.map(g => ({ name: g.name, rows: g.rows.map(r => ({ label: r[0], cells: r.slice(1).map((v, ci) => ({ yes: v !== false, no: v === false, text: v === true ? 'Included' : v === false ? '' : v, bg: ci === 1 ? '#FFFAEB' : 'transparent' })) })) }));
+
+    // Reporting: "Product velocity" chart derived from top sellers / slow movers.
+    const chart = (() => {
+      const num = v => parseInt(String(v).replace(/[^0-9]/g, ''), 10) || 0;
+      const top = d.rep[c].top, slow = d.rep[c].slow;
+      const wt = [.21, .24, .26, .29], sw = [[0, 0, 0, 0], [1, 0, 1, 0], [0, 1, 1, 1]];
+      const wk = [0, 1, 2, 3].map(i => ({ top: top.map(r => Math.round(num(r.v) * wt[i])), slow: slow.map((r, j) => Math.min(num(r.v), (sw[j] || [0, 0, 0, 0])[i])) }));
+      const tT = wk.map(w => w.top.reduce((a, b) => a + b, 0)), tS = wk.map(w => w.slow.reduce((a, b) => a + b, 0));
+      const ymax = Math.max(...tT) * 1.15 || 1;
+      const X = i => 37.5 + i * 75, Yp = v => 118 - (v / ymax) * 112;
+      const line = arr => arr.map((v, i) => (i ? 'L' : 'M') + X(i) + ' ' + Yp(v).toFixed(1)).join('');
+      const hv = state.velHover;
+      const labels = l === 'ar' ? ['الأسبوع 1', 'الأسبوع 2', 'الأسبوع 3', 'الأسبوع 4'] : ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+      const pts = [...tT.map((v, i) => ({ x: X(i) / 3 + '%', y: Yp(v) / 1.2 + '%', c: '#2f9e44', s: hv === i ? 'scale(1.4)' : 'scale(1)' })), ...tS.map((v, i) => ({ x: X(i) / 3 + '%', y: Yp(v) / 1.2 + '%', c: '#25D366', s: hv === i ? 'scale(1.4)' : 'scale(1)' }))];
+      const tip = hv == null || hv < 0 ? null : { x: X(hv) / 3 + '%', tf: hv === 0 ? 'translateX(-10%)' : hv === 3 ? 'translateX(-90%)' : 'translateX(-50%)', label: labels[hv], rows: [...top.map((r, j) => ({ item: r.item, n: wk[hv].top[j], c: '#2f9e44' })), ...slow.map((r, j) => ({ item: r.item, n: wk[hv].slow[j], c: '#25D366' }))] };
+      const ct = state.chartTab;
+      return {
+        chartTabs: [['rev', t.repChart], ['vel', l === 'ar' ? 'حركة المنتجات' : 'Product velocity']].map(([k, label]) => ({ label, go: () => setState({ chartTab: k }), bg: ct === k ? '#fff' : 'transparent', fg: ct === k ? '#1b1c1d' : '#505153', sh: ct === k ? '0 1px 2px rgba(8,9,10,.08),inset 0 0 0 1px #e6e8ea' : 'none' })),
+        showRev: ct === 'rev', showVel: ct === 'vel', chartNote: ct === 'rev' ? t.repChartNote : (l === 'ar' ? 'وحدات أسبوعياً · مرّر للتفاصيل' : 'Units per week · hover for detail'),
+        velLineTop: line(tT), velAreaTop: line(tT) + 'L' + X(3) + ' 120L' + X(0) + ' 120Z', velLineSlow: line(tS), velGuide: tip ? 'M' + X(hv) + ' 0V120' : '', velPts: pts, velTip: tip,
+        velLeave: () => setState({ velHover: -1 }), velCols: labels.map((lab, i) => ({ label: lab, enter: () => setState({ velHover: i }) })),
+      };
+    })();
+
+    const types = d.retail[c] || [];
+    const shopSel = state.shop ?? types[0];
+    const shopOpen = state.shopOpen;
+
     return {
-      c, l, sa, ar, CL,
-      cur: l === 'ar' ? (sa ? 'ر.س' : 'د.إ') : (sa ? 'SAR' : 'AED'),
-      t: { ...COPY.en.base, ...COPY.en[c], ...CL.base, ...CL[c] },
-      d: { ...DATA.en, ...(DATA[l] || {}) },
+      navBg: state.navSolid ? 'rgba(30,57,162,.92)' : 'transparent', navBlur: state.navSolid ? 'blur(12px)' : 'none', navLine: state.navSolid ? 'rgba(255,255,255,.14)' : 'transparent',
+      dir: ar ? 'rtl' : 'ltr', isRtl: ar, isLtr: !ar, heroFlip: 'none', bidi: l === 'ur' || l === 'hi' ? 'mixed' : 'none', t, isSA: sa, isAE: !sa, showPricing: props.showPricing,
+      countryLabel: { AE: 'UAE', SA: 'KSA' }[c] || c, countryFlag: FLAGS[c], regionOpen: state.regionOpen, toggleRegion: () => setState({ regionOpen: !state.regionOpen, langOpen: false }), countries,
+      langs, langLabel: LANG_LABELS[l], langOpen: state.langOpen, toggleLang: () => setState({ langOpen: !state.langOpen, regionOpen: false }),
+      retailTypes: types, features,
+      receipt: d.receipt[c], steps: d.steps.map((s, i) => ({ n: String(i + 1).padStart(2, '0'), ...s })), stepLine: stepLine(ar),
+      cmpGroups, cmpRows: state.cmpOpen ? '1fr' : '0fr', cmpChevron: state.cmpOpen ? 'rotate(180deg)' : 'rotate(0deg)', cmpLabel: state.cmpOpen ? 'Hide full comparison' : 'Compare all features', cmpTitle: 'Compare features by plan', cmpSub: 'Every feature, side by side.', cmpFeature: 'Feature', toggleCmp: () => setState({ cmpOpen: !state.cmpOpen }),
+      hwCards: d.hardware.slice(0, 5).map((x, i) => { const on = state.hwHover === i; const img = ['terminal', 'printer', 'scanner', 'drawer', 'card'][i]; return { ...x, imgUrl: 'url(assets/hw-' + img + '-cut.png)', glow: on ? 1 : 0, scale: on ? 'scale(1.1) translateY(-4%)' : 'scale(1)', enter: () => setState({ hwHover: i }), leave: () => setState({ hwHover: -1 }) }; }),
+      plans,
+      hubTop: d.hub.slice(0, 3).map((x, i) => ({ ...x, ...ISO[i] })), hubBottom: d.hub.slice(3, 6).map((x, i) => ({ ...x, ...ISO[i + 3] })), hubStats: d.hubStats,
+      repPoints: d.repPoints, ...chart,
+      repKpis: d.rep[c].kpis.map(k => ({ ...k, v: k.cur ? `${cur} ${k.v}` : k.v, color: k.d.startsWith('−') || k.d.startsWith('-') ? '#9b1106' : '#217220' })),
+      repBars: [62, 48, 55, 71, 44, 88, 100].map((h, i) => ({ h: h + '%', day: d.days[i], color: i === 6 ? '#25D366' : '#d3d4d6' })),
+      replRef: refs.repl, repl: d.repl[c].map((r, ri) => ({ ...r, op: state.replIn ? 1 : 0, tf: state.replIn ? 'translateY(0)' : 'translateY(16px)', delay: (ri * 140) + 'ms', barDelay: (300 + ri * 140) + 'ms', pctNow: state.replIn ? r.pct : '0%', badgeBg: r.level === 'low' ? '#E9FAF0' : r.level === 'ordered' ? '#dcf0fa' : '#eefaed', badgeFg: r.level === 'low' ? '#128C4A' : r.level === 'ordered' ? '#026c8c' : '#217220', barColor: r.level === 'low' ? '#25D366' : r.level === 'ordered' ? '#06b5eb' : '#37b237' })),
+      hwRef: refs.hw, hwTrackRef: refs.hwTrack, hwBarRef: refs.hwBar,
+      stories: d.stories[c], storyRef: refs.story, storyScroll, storyPrev: () => storyGo(-1), storyNext: () => storyGo(1), storyPrevOp: state.sStart === false ? 1 : 0.35, storyNextOp: state.sEnd ? 0.35 : 1, arrowFlip: ar ? 'scaleX(-1)' : 'none',
+      faqs,
+      shopRef: refs.shop, shopOpen, shopLabel: shopSel, shopChev: shopOpen ? 'rotate(180deg)' : 'rotate(0deg)', shopBorder: shopOpen ? '#1E39A2' : '#d3d4d6', shopRing: shopOpen ? '0 0 0 3px rgba(30,57,162,.18)' : 'none',
+      toggleShop: () => setState({ shopOpen: !shopOpen }), shopKey: e => { if (e.key === 'Escape') setState({ shopOpen: false }); },
+      shopOptions: types.map(r => ({ label: r, active: r === shopSel, bg: r === shopSel ? '#f3f4f5' : 'transparent', weight: r === shopSel ? 600 : 400, pick: () => setState({ shop: r, shopOpen: false }) })),
+      lang: l,
     };
   }
 
-  const WA_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.5l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-1 2.3 5.3 5.3 0 0 0 1.1 2.8 12 12 0 0 0 4.6 4c1.7.7 2.1.6 2.8.5a2.4 2.4 0 0 0 1.6-1.1 2 2 0 0 0 .1-1.1c0-.1-.2-.2-.4-.2Z"/></svg>';
+  // ---------------------------------------------------------------------------
+  // Render loop
+  // ---------------------------------------------------------------------------
 
-  const groupLogo = ({ sa }) => sa
-    ? '<img src="assets/axiom.png" alt="axiom by tradeling">'
-    : '<img src="assets/tradeling.png" alt="tradeling.com">';
-
-  // ---------- sections ----------
-
-  function nav({ c, l, t, CL }) {
-    return `
-    <header class="nav" data-screen-label="nav">
-      <div class="wrap nav-inner">
-        <img class="nav-logo" src="assets/edukaan-white.png" alt="edukaan by tradeling">
-        <nav class="nav-links">
-          <a href="#features">${esc(t.navFeatures)}</a><a href="#hardware">${esc(t.navHardware)}</a>${config.showPricing ? `<a href="#pricing">${esc(t.navPricing)}</a>` : ''}<a href="#faq">${esc(t.navFaq)}</a>
-        </nav>
-        <div class="nav-actions">
-          <div class="region">
-            <button class="pill-btn" data-act="region" aria-haspopup="listbox" aria-expanded="${state.regionOpen}">
-              <span class="dot" style="background:var(--orange)"></span><span class="cn-full">${esc(CL.names[c])}</span><span class="cn-short">${esc(t.countryTag)}</span><span class="caret">▾</span>
-            </button>
-            ${state.regionOpen ? `
-            <div class="region-menu" role="listbox">
-              <div class="overline">${esc(t.regionTitle)}</div>
-              ${map(['AE', 'SA'], cc => `
-                <button class="region-opt${cc === c ? ' active' : ''}" role="option" aria-selected="${cc === c}" data-act="country" data-cc="${cc}">
-                  <span>${esc(CL.names[cc])}</span>${cc === c ? '<span class="check">✓</span>' : ''}
-                </button>`)}
-            </div>` : ''}
-          </div>
-          <div class="region">
-            <button class="pill-btn" data-act="langmenu" aria-haspopup="listbox" aria-expanded="${state.langOpen}" aria-label="${esc(t.langTitle)}">
-              <span lang="${l}">${esc(LANG_LABELS[l])}</span><span class="caret">▾</span>
-            </button>
-            ${state.langOpen ? `
-            <div class="region-menu lang-menu" role="listbox">
-              <div class="overline">${esc(t.langTitle)}</div>
-              ${map(LANGS, k => `
-                <button class="region-opt${k === l ? ' active' : ''}" role="option" aria-selected="${k === l}" data-act="lang" data-l="${k}" lang="${k}">
-                  <span>${esc(LANG_LABELS[k])}</span>${k === l ? '<span class="check">✓</span>' : ''}
-                </button>`)}
-            </div>` : ''}
-          </div>
-          <a class="btn btn-primary nav-cta" href="#contact">${esc(t.ctaShort)}</a>
-        </div>
-      </div>
-    </header>`;
+  const app = document.getElementById('app');
+  let scheduled = false;
+  function setState(patch) {
+    Object.assign(state, patch);
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => { scheduled = false; render(); });
   }
-
-  function hero({ c, t, d }) {
-    const photo = HERO_PHOTOS[c];
-    return `
-    <section class="hero-band" data-screen-label="hero">
-    ${photo ? `
-      <div class="hero-bg" aria-hidden="true">
-        <img class="hero-photo" src="${photo}" alt="">
-        <div class="hero-fade-x"></div>
-        <div class="hero-fade-y"></div>
-      </div>` : ''}
-    <div class="wrap hero">
-      <div class="stack hero-copy">
-        <div class="tags">
-          ${map(d.retail[c], r => `<span class="tag">${esc(r)}</span>`)}
-        </div>
-        <h1>${esc(t.heroA)}<span>${esc(t.heroB)}</span>${esc(t.heroC)}</h1>
-        <p class="hero-sub">${esc(t.heroSub)}</p>
-        <div class="cta-row">
-          <a class="btn btn-primary btn-lg" href="#contact">${WA_ICON}${esc(t.cta)}</a>
-          <span class="cta-note">${esc(t.ctaNote)}</span>
-        </div>
-      </div>
-      <div class="pos${state.posIn ? ' in' : ''}" aria-hidden="true">
-        <div class="tab-tilt">
-          <div class="tab-bezel">
-            <div class="tab-body">
-              <div class="tab-cam"></div>
-              <div class="tab-screen">
-                <div class="pos-screen">
-                  <div class="pos-main">
-                    <div class="pos-head"><b>${esc(t.saleNo)}</b><small>${esc(t.saleMeta)}</small></div>
-                    <div id="pos-live"></div>
-                  </div>
-                  <div class="pos-side" id="pos-side"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="tab-handle start"><span></span><span></span></div>
-          <div class="tab-handle end"><span></span></div>
-          <div class="low-stock"><div>${esc(t.lowStock)}</div><div>${esc(t.reorder)} →</div></div>
-        </div>
-        <div class="tab-stand"></div>
-        <div class="tab-shadow"></div>
-      </div>
-    </div>
-    </section>`;
-  }
-
-  function trusted({ t }) {
-    return `
-    <section class="light trusted" data-screen-label="trusted by">
-      <div class="trusted-title">${esc(t.trustedBy)}</div>
-      <div class="trusted-band">
-        <div class="wrap">
-          <div class="trusted-grid">
-            ${map(TRUSTED_LOGOS, (l, i) => `<div class="trusted-cell${i % 2 ? '' : ' shade'}"><img src="assets/${l.file}" alt="${esc(l.name)}" style="${l.size}"></div>`)}
-          </div>
-        </div>
-      </div>
-    </section>`;
-  }
-
-  // Scroll story: each feature is a tall step on the left; the sticky tablet on the right shows the step nearest mid-screen.
-  function features({ c, t, d }) {
-    const list = d.features[c];
-    const i = Math.min(state.feat, list.length - 1);
-    return `
-    <section id="features" class="light" data-screen-label="features">
-      <div class="wrap feat-head">
-        <h2 class="h2">${esc(t.featTitle)}</h2>
-        <div class="feat-sub">${esc(t.featSub)}</div>
-      </div>
-      <div class="wrap feat-story">
-        <div class="feat-list">
-          ${map(list, (f, j) => `
-            <div class="feat-step" data-feat="${j}">
-              <div class="feat-item${j === i ? ' on' : ''}">
-                <div class="feat-rail"></div>
-                <div class="stack feat-copy">
-                  <div class="overline">${pad2(j)} / ${String(list.length).padStart(2, '0')}</div>
-                  <div class="feat-title">${esc(f.title)}</div>
-                  <div class="feat-body">${esc(f.body)}</div>
-                  <div class="chips">${map(f.chips || [], ch => `<span class="chip">${esc(ch)}</span>`)}</div>
-                  <div class="feat-stats">
-                    <div class="feat-stat"><b>${esc(f.stat)}</b><span>${esc(f.statLabel)}</span></div>
-                    <div class="feat-mini">${map(f.mini || [], m => `<div><i></i><span>${esc(m)}</span></div>`)}</div>
-                  </div>
-                </div>
-              </div>
-            </div>`)}
-        </div>
-        <div class="feat-device" aria-hidden="true">
-          <div class="dev-frame">
-            <div class="dev-notch"></div>
-            <div class="dev-screen">
-              <div class="dev-bar">
-                <div class="dev-app"><img src="assets/edukaan-dark.png" alt=""><span id="dev-card">· ${esc(list[i].cardTitle)}</span></div>
-                <div class="dev-dots">${map(list, (f, j) => `<span class="${j === i ? 'on' : ''}"></span>`)}</div>
-              </div>
-              <div class="dev-body in" id="dev-body">${deviceBody(list[i], i, list.length)}</div>
-            </div>
-          </div>
-          <div class="feat-pills">${map(list, (f, j) => `<button class="${j === i ? 'on' : ''}" data-act="feat-jump" data-i="${j}" tabindex="-1">${pad2(j)}</button>`)}</div>
-        </div>
-      </div>
-    </section>`;
-  }
-
-  function deviceBody(a, i, n) {
-    return `
-      <div class="dev-title"><div>${esc(a.screenTitle || a.cardTitle)}</div><span class="dev-badge">${esc(a.badge)}</span></div>
-      ${map(a.rows, r => `<div class="dev-row"><span>${esc(r.k)}</span><span>${esc(r.v)}</span></div>`)}
-      <div class="dev-tiles">${map(a.tiles || [], tl => `<div><small>${esc(tl.k)}</small><b>${esc(tl.v)}</b></div>`)}</div>
-      <div class="dev-foot">
-        <div class="dev-progress"><div style="width:${Math.round(((i + 1) / n) * 100)}%"></div></div>
-        <div class="dev-action">${esc(a.action)}</div>
-      </div>`;
-  }
-
-  // Swap the active feature in place (no full re-render) so the CSS transitions can play.
-  function setFeat(i) {
-    if (i === state.feat) return;
-    state.feat = i;
-    const list = ctx().d.features[country()];
-    const sec = document.getElementById('features');
-    if (!sec) return;
-    sec.querySelectorAll('.feat-item').forEach((el, j) => el.classList.toggle('on', j === i));
-    sec.querySelectorAll('.dev-dots span, .feat-pills button').forEach(el => el.classList.remove('on'));
-    sec.querySelectorAll('.dev-dots span')[i]?.classList.add('on');
-    sec.querySelectorAll('.feat-pills button')[i]?.classList.add('on');
-    document.getElementById('dev-card').textContent = '· ' + list[i].cardTitle;
-    const body = document.getElementById('dev-body');
-    body.classList.remove('in');
-    clearTimeout(setFeat.t);
-    setFeat.t = setTimeout(() => { body.innerHTML = deviceBody(list[i], i, list.length); body.classList.add('in'); }, 180);
-  }
-
-  function pickFeat() {
-    const steps = document.querySelectorAll('.feat-step');
-    if (!steps.length) return;
-    const mid = innerHeight / 2;
-    let best = -1, bestD = Infinity;
-    steps.forEach((el, j) => {
-      const b = el.getBoundingClientRect();
-      const dist = b.top <= mid && b.bottom >= mid ? 0 : Math.min(Math.abs(b.top - mid), Math.abs(b.bottom - mid));
-      if (dist < bestD) { bestD = dist; best = j; }
-    });
-    if (best >= 0) setFeat(best);
-  }
-
-  function hub({ t, d }) {
-    const card = h => `
-      <div class="hub-card">
-        <div class="overline muted">${esc(h.tag)}</div>
-        <div class="t">${esc(h.title)}</div>
-        <div class="b">${esc(h.body)}</div>
-      </div>`;
-    return `
-    <div class="wrap"><div class="rule-dark"></div></div>
-    <section class="wrap hub" data-screen-label="one pos hub">
-      <div class="stack hub-head">
-        <div class="overline accent eyebrow">${esc(t.hubOverline)}</div>
-        <h2 class="h2">${esc(t.hubTitle)}</h2>
-      </div>
-      <div class="hub-grid">
-        ${map(d.hub.slice(0, 3), card)}
-        <div class="hub-line"></div><div class="hub-line"></div><div class="hub-line"></div>
-        <div class="hub-core">
-          <div class="hub-core-id">
-            <img src="assets/edukaan-white.png" alt="edukaan">
-            <div><div class="t">${esc(t.hubCore)}</div><div class="s">${esc(t.hubCoreSub)}</div></div>
-          </div>
-          <div class="hub-stats">
-            ${map(d.hubStats, s => `<div class="hub-stat"><b>${esc(s.v)}</b><small>${esc(s.k)}</small></div>`)}
-          </div>
-        </div>
-        <div class="hub-line down"></div><div class="hub-line down"></div><div class="hub-line down"></div>
-        ${map(d.hub.slice(3, 6), card)}
-      </div>
-    </section>`;
-  }
-
-  function reporting({ c, t, d, cur }) {
-    const rep = d.rep[c];
-    const bars = [62, 48, 55, 71, 44, 88, 100];
-    return `
-    <section class="band-grey">
-    <div id="reporting" class="wrap split reporting" data-screen-label="reporting">
-      <div class="stack">
-        <div class="overline accent eyebrow">${esc(t.repOverline)}</div>
-        <h2 class="h2">${esc(t.repTitle)}</h2>
-        <p class="lead">${esc(t.repBody)}</p>
-        <div class="points">
-          ${map(d.repPoints, p => `<div class="point"><i>✓</i><span>${esc(p)}</span></div>`)}
-        </div>
-      </div>
-      <div class="dash">
-        <div class="dash-head"><b>${esc(t.repDash)}</b><small>${esc(t.repRange)}</small></div>
-        <div class="kpis">
-          ${map(rep.kpis, k => `
-            <div class="kpi">
-              <div class="k">${esc(k.k)}</div>
-              <div class="v">${esc(k.cur ? `${cur} ${k.v}` : k.v)}</div>
-              <div class="d${/^[−-]/.test(k.d) ? ' neg' : ''}">${esc(k.d)}</div>
-            </div>`)}
-        </div>
-        <div>
-          <div class="chart-head"><span>${esc(t.repChart)}</span><span>${esc(t.repChartNote)}</span></div>
-          <div class="bars">${map(bars, (h, i) => `<div class="${i === 6 ? 'today' : ''}" style="height:${h}%"></div>`)}</div>
-          <div class="bar-days">${map(d.days, day => `<div>${esc(day)}</div>`)}</div>
-        </div>
-        <div class="movers">
-          <div>
-            <div class="overline top">${esc(t.repTop)}</div>
-            ${map(rep.top, r => `<div class="mover"><span>${esc(r.item)}</span><span>${esc(r.v)}</span></div>`)}
-          </div>
-          <div>
-            <div class="overline slow">${esc(t.repSlow)}</div>
-            ${map(rep.slow, r => `<div class="mover muted"><span>${esc(r.item)}</span><span>${esc(r.v)}</span></div>`)}
-          </div>
-        </div>
-      </div>
-    </div>
-    </section>`;
-  }
-
-  function wholesale(v) {
-    const { c, t, d } = v;
-    return `
-    <section class="light">
-    <div id="wholesale" class="wrap split wholesale" data-screen-label="wholesale">
-      <div class="stack">
-        <div class="overline accent eyebrow">${esc(t.recOverline)}</div>
-        <h2 class="h2">${esc(t.recTitle)}</h2>
-        <p class="lead">${esc(t.recBody)}</p>
-        <div class="repl">
-          <div class="repl-head"><div class="overline muted">${esc(t.replTitle)}</div><div class="repl-on">● ${esc(t.replOn)}</div></div>
-          ${map(d.repl[c], r => `
-            <div class="repl-item lvl-${r.level}">
-              <b>${esc(r.item)}</b>
-              <div class="badge">${esc(r.status)}</div>
-              <div class="meter"><div style="width:${esc(r.pct)}"></div></div>
-              <div class="repl-note">${esc(r.note)}</div>
-            </div>`)}
-        </div>
-        <div class="supplier">
-          <div class="supplier-logo">${groupLogo(v)}</div>
-          <span>${esc(t.recSupplier)}</span>
-        </div>
-      </div>
-      <div class="receipt-tilt">
-        <div class="receipt">
-          <div class="receipt-head"><img src="assets/edukaan-dark.png" alt="edukaan"><div>${esc(t.recHead)}</div></div>
-          <div class="rule"></div>
-          <div class="receipt-lines">${map(d.receipt[c], r => `<div class="row"><span>${esc(r)}</span><span>✓</span></div>`)}</div>
-          <div class="rule"></div>
-          <div class="row systems"><span>${esc(t.recSystems)}</span><span>1</span></div>
-          <div class="row meta"><span>${esc(t.recSetup)}</span><span>${esc(t.recSetupVal)}</span></div>
-          <div class="row meta"><span>${esc(t.recContract)}</span><span>${esc(t.recContractVal)}</span></div>
-          <div class="rule"></div>
-          <div class="thanks">${esc(t.recThanks)}</div>
-          <div class="barcode"></div>
-        </div>
-      </div>
-    </div>
-    </section>`;
-  }
-
-  function steps({ t, d }) {
-    return `
-    <section class="band-grey" data-screen-label="steps">
-      <div class="wrap steps-sec">
-        <h2 class="h2">${esc(t.stepsTitle)}</h2>
-        <div class="steps">
-          <div class="step-line" aria-hidden="true"><div><i></i></div><div><i></i></div></div>
-          ${map(d.steps, (s, i) => `<div class="step"><div class="n">${pad2(i)}</div><div class="t">${esc(s.title)}</div><div class="b">${esc(s.body)}</div></div>`)}
-        </div>
-      </div>
-    </section>`;
-  }
-
-  // Hardware: orange cards with cut-out product shots; the shot lifts and glows on hover (CSS only).
-  function hardware({ t, d }) {
-    return `
-    <section id="hardware" class="light" data-screen-label="hardware">
-      <div class="wrap hw-sec">
-        <div class="hw-head"><h2>${esc(t.hwTitle)}</h2><div>${esc(t.hwNote)}</div></div>
-        <div class="hw-grid">
-          ${map(d.hardware.slice(0, 5), (h, i) => `
-            <div class="hw-card${i < 3 ? '' : ' wide'}">
-              <div class="hw-glow"></div>
-              <div class="hw-shot"><img src="assets/hw-${HW_PHOTOS[i]}-cut.png" alt="${esc(h.name)}" loading="lazy"></div>
-              <div class="hw-text"><div class="hw-name">${esc(h.name)}</div><div class="hw-spec">${esc(h.spec)}</div></div>
-            </div>`)}
-        </div>
-      </div>
-    </section>`;
-  }
-
-  function integrations({ sa, t }) {
-    const col = (title, logos) => `
-      <div class="int-col">
-        <div class="int-col-title">${esc(title)}</div>
-        <div class="int-logos">
-          ${map(logos.filter(l => !l.only || l.only === (sa ? 'SA' : 'AE')), l => `
-            <div class="int-logo"${l.bg ? ` style="background:${l.bg}"` : ''}><img src="assets/int-${l.key}.png" alt="${esc(l.name)}"></div>`)}
-        </div>
-      </div>`;
-    return `
-    <section class="light" data-screen-label="integrations">
-      <div class="wrap integrations">
-        <div class="stack int-head">
-          <div class="overline eyebrow">${esc(t.intTitle)}</div>
-          <h2>${esc(t.intHeadline)}</h2>
-        </div>
-        <div class="int-grid">
-          ${col(t.intPay, INTEGRATIONS.pay)}
-          ${col(t.intMarket, INTEGRATIONS.market)}
-          ${col(t.intErp, INTEGRATIONS.erp)}
-        </div>
-      </div>
-    </section>`;
-  }
-
-  function pricing({ t, d, cur }) {
-    if (!config.showPricing) return '';
-    return `
-    <section id="pricing" class="light" data-screen-label="pricing">
-      <div class="wrap pricing">
-        <div class="price-head">
-          <div><h2 class="h2">${esc(t.priceTitle)}</h2><div class="sub">${esc(t.priceSub)}</div></div>
-          <div class="note">${esc(t.priceNote)}</div>
-        </div>
-        <div class="plans">
-          ${map(d.plans, (p, i) => `
-            <div class="plan${i === 1 ? ' hi' : ''}">
-              <div class="plan-top"><div class="plan-name">${esc(p.name)}</div>${i === 1 ? `<span class="overline plan-badge">${esc(t.priceBadge)}</span>` : ''}</div>
-              <div class="plan-price">${esc(p.price ? `${cur} ${p.price}` : p.priceLabel)}</div>
-              <div class="plan-desc">${esc(p.desc)}</div>
-              <div class="plan-items">
-                ${p.lead ? `<div class="lead-in">${esc(p.lead)}</div>` : ''}
-                ${map(p.items, it => `<div class="it"><span>✓</span><span>${esc(it)}</span></div>`)}
-              </div>
-              ${p.excluded && p.excluded.length ? `
-                <div class="plan-excl">
-                  <div class="overline">${esc(t.notIncluded)}</div>
-                  ${map(p.excluded, x => `<div class="it"><span>—</span><span>${esc(x)}</span></div>`)}
-                </div>` : ''}
-              <a class="btn plan-btn" href="#contact">${esc(p.btn)}</a>
-            </div>`)}
-        </div>
-      </div>
-    </section>`;
-  }
-
-  function stories({ c, d }) {
-    return `
-    <div class="wrap"><div class="rule-dark"></div></div>
-    <section class="wrap stories" data-screen-label="stories">
-      <div class="story-grid">
-        ${map(d.stories[c], s => `
-          <figure class="story" style="margin:0">
-            <div class="stat">${esc(s.stat)}</div>
-            <blockquote class="q" style="margin:0">“${esc(s.quote)}”</blockquote>
-            <figcaption class="who">${esc(s.who)} · ${esc(s.where)}</figcaption>
-          </figure>`)}
-      </div>
-    </section>`;
-  }
-
-  function faq({ c, t, d }) {
-    return `
-    <div class="wrap"><div class="rule-dark"></div></div>
-    <section id="faq" class="wrap faq" data-screen-label="faq">
-      <h2>${esc(t.faqTitle)}</h2>
-      <div class="faq-list">
-        ${map(d.faq[c], (f, i) => {
-          const open = state.openFaq === i;
-          return `
-          <div class="faq-item">
-            <button class="faq-q" data-act="faq" data-i="${i}" aria-expanded="${open}"><span>${esc(f.q)}</span><span class="sign">${open ? '−' : '+'}</span></button>
-            ${open ? `<div class="faq-a">${esc(f.a)}</div>` : ''}
-          </div>`;
-        })}
-      </div>
-    </section>`;
-  }
-
-  function contact({ c, t, d }) {
-    return `
-    <section id="contact" class="contact" data-screen-label="contact">
-      <div class="wrap split">
-        <div class="stack">
-          <h2>${esc(t.contactTitle)}</h2>
-          <a class="btn btn-dark btn-lg" href="https://wa.me/${WHATSAPP}" target="_blank" rel="noopener">${WA_ICON}${esc(t.cta)}</a>
-          <div class="phone" dir="ltr">+971 44 910000</div>
-        </div>
-        <form class="form" id="callback">
-          <div class="form-title">${esc(t.formTitle)}</div>
-          <input id="f-name" name="name" required autocomplete="name" placeholder="${esc(t.fName)}" aria-label="${esc(t.fName)}">
-          <input id="f-phone" name="phone" type="tel" required autocomplete="tel" dir="ltr" placeholder="${esc(t.fPhone)}" aria-label="${esc(t.fPhone)}">
-          <select id="f-type" name="type" aria-label="Store type">${map(d.retail[c], r => `<option>${esc(r)}</option>`)}</select>
-          <button class="btn btn-primary" type="submit">${esc(t.fSend)}</button>
-        </form>
-      </div>
-    </section>`;
-  }
-
-  function footer(v) {
-    const { t } = v;
-    return `
-    <footer class="wrap footer" data-screen-label="footer">
-      <div class="foot-grid">
-        <div class="foot-col foot-brand"><img src="assets/edukaan-white.png" alt="edukaan by tradeling"><div>${esc(t.footBlurb)}</div></div>
-        <div class="foot-col">
-          <div class="overline">${esc(t.footGroup)}</div>
-          <div class="foot-logo">${groupLogo(v)}</div>
-          <div>${esc(t.footAddr)}</div>
-        </div>
-        <div class="foot-col">
-          <div class="overline">${esc(t.footContact)}</div>
-          <div dir="ltr">+971 44 910000</div>
-          <a href="mailto:support@tradeling.com" style="color:inherit">support@tradeling.com</a>
-        </div>
-      </div>
-      <div class="foot-bottom"><span>© 2026 Tradeling Group. ${esc(t.footRights)}</span><span>${esc(t.footPrivacy)}</span></div>
-    </footer>`;
-  }
-
-  // ---------- hero POS demo (re-rendered every tick) ----------
-  // Timeline: type each item into the search box, add it, then pay, then loop.
-
-  function renderPos() {
-    const live = document.getElementById('pos-live'), side = document.getElementById('pos-side');
-    if (!live) return;
-    const { c, sa, t, d, cur } = ctx();
-    const cartSrc = d.cart[c];
-    const anim = config.animateDemo;
-    const PAUSE = 5, PAY_HOLD = 10, DONE_HOLD = 16;
-    const segs = cartSrc.map(x => Math.min(x[0].length, 22) + PAUSE);
-    const total = segs.reduce((a, b) => a + b, 0) + 8 + PAY_HOLD + DONE_HOLD;
-    let f = anim ? state.tick % total : total, shown = cartSrc.length, typed = '', paying = false, paid = false;
-    if (anim) {
-      shown = 0;
-      for (let i = 0; i < segs.length; i++) {
-        if (f < segs[i]) { typed = cartSrc[i][0].slice(0, Math.min(f, cartSrc[i][0].length, 22)); break; }
-        f -= segs[i]; shown = i + 1;
-      }
-      if (shown === cartSrc.length) {
-        if (f >= 8) paying = true;
-        if (f >= 8 + PAY_HOLD) paid = true;
-      }
-    }
-    const cursor = anim && !paid && state.tick % 6 < 3 ? '|' : ' ';
-    const visible = cartSrc.slice(0, shown);
-    const rate = sa ? 0.15 : 0.05, sub = visible.reduce((s, x) => s + x[1], 0), vat = sub * rate / (1 + rate);
-    const fmt = n => `${cur} ${n.toFixed(2)}`;
-
-    live.outerHTML = `<div id="pos-live" style="display:contents">
-      <div class="scan${typed ? ' typing' : ''}">${esc(typed ? typed + cursor : t.scanHint)}</div>
-      <div class="cart">
-        ${map(visible, x => `<div class="row"><span>${esc(x[0])}</span><span class="amt">${esc(fmt(x[1]))}</span></div>`)}
-        ${paid ? `<div class="paid-overlay"><div class="paid-chip"><i>✓</i>${esc(t.paidLabel)}</div></div>` : ''}
-      </div>
-      <div class="totals">
-        <div class="row vat"><span>${esc(t.vatLine)}</span><span>${esc(fmt(vat))}</span></div>
-        <div class="row grand"><span>${esc(t.total)}</span><span>${esc(fmt(sub))}</span></div>
-      </div>
-    </div>`;
-    side.innerHTML = `
-      <div class="overline">${esc(t.payWith)}</div>
-      ${map(d.pay[c], (name, i) => `<div class="pay${i === 0 ? ' primary' : ''}${i === 0 && paying ? ' paying' : ''}">${esc(name)}</div>`)}
-      <div class="comp-foot"><span class="dot" style="background:var(--green)"></span>${esc(t.compFoot)}</div>`;
-  }
-
-  // ---------- full render ----------
 
   function render() {
-    // keep anything typed into the call-back form across re-renders
-    const kept = ['f-name', 'f-phone', 'f-type'].map(id => document.getElementById(id)?.value);
-    const v = ctx();
-    document.documentElement.lang = v.l;
-    document.documentElement.dir = v.ar ? 'rtl' : 'ltr';
-    // Hindi and Urdu copy mixes scripts (e.g. "Edukaan POS" inside Urdu), so let each block pick its own direction.
-    document.documentElement.dataset.bidi = v.l === 'hi' || v.l === 'ur' ? 'mixed' : 'none';
-    document.title = v.l === 'ar' ? 'إدكان POS' : 'Edukaan POS';
-    app.innerHTML = nav(v) + '<main>' + hero(v) + trusted(v) + features(v) + hub(v) + reporting(v) + wholesale(v)
-      + steps(v) + hardware(v) + integrations(v) + pricing(v) + stories(v) + faq(v) + contact(v) + '</main>' + footer(v);
-    ['f-name', 'f-phone'].forEach((id, i) => { if (kept[i]) document.getElementById(id).value = kept[i]; });
-    renderPos();
-    requestAnimationFrame(pickFeat);
+    const v = vals();
+    document.documentElement.lang = v.lang;
+    document.documentElement.dir = v.dir;
+    document.title = v.lang === 'ar' ? 'إدكان POS' : 'Edukaan POS';
+    morphChildren(app, build(tplEl.content.childNodes, v, []));
+    afterRender();
   }
 
-  function setState(patch) { Object.assign(state, patch); render(); }
+  // ---------------------------------------------------------------------------
+  // Effects (scroll-driven motion, reveal-on-scroll, observers)
+  // ---------------------------------------------------------------------------
 
-  // ---------- events ----------
+  // Feature cards stack as you scroll: covered cards shrink and dim slightly.
+  function stackFx() {
+    const els = featRefs.map(r => r.current).filter(Boolean); if (!els.length) return;
+    const tops = els.map((el, i) => 96 + i * 28);
+    els.forEach((el, i) => {
+      let depth = 0; const hgt = el.offsetHeight || 1;
+      for (let j = i + 1; j < els.length; j++) { const p = 1 - (els[j].getBoundingClientRect().top - tops[j]) / hgt; depth += Math.max(0, Math.min(1, p)); }
+      el.style.transform = 'scale(' + (1 - depth * 0.04).toFixed(4) + ')';
+      const prev = els[i - 1]; const over = prev && el.getBoundingClientRect().top < prev.getBoundingClientRect().bottom - 4;
+      el.style.boxShadow = over ? '0 -16px 32px -20px rgba(8,9,10,.22)' : 'none';
+      el.style.filter = depth > 0.01 ? 'brightness(' + (1 - Math.min(depth, 3) * 0.03).toFixed(3) + ')' : 'none';
+    });
+  }
 
-  document.addEventListener('click', e => {
-    const el = e.target.closest('[data-act]');
-    if (!el) {
-      if ((state.regionOpen || state.langOpen) && !e.target.closest('.region')) setState({ regionOpen: false, langOpen: false });
+  // Hardware: the section is tall; while it is pinned, vertical scroll slides the card track sideways.
+  function sizeHw() { const s = refs.hw.current, t = refs.hwTrack.current; if (s && t) s.style.height = (t.scrollWidth - innerWidth + innerHeight + 64) + 'px'; }
+  function hwFx() {
+    const s = refs.hw.current, t = refs.hwTrack.current; if (!s || !t) return;
+    const r = s.getBoundingClientRect(), span = s.offsetHeight - innerHeight, p = span > 0 ? Math.max(0, Math.min(1, -r.top / span)) : 0;
+    const dist = Math.max(0, t.scrollWidth - innerWidth), rtl = getComputedStyle(t).direction === 'rtl';
+    t.style.transform = 'translate3d(' + ((rtl ? 1 : -1) * p * dist).toFixed(1) + 'px,0,0)';
+    if (refs.hwBar.current) refs.hwBar.current.style.width = (p * 100).toFixed(1) + '%';
+  }
+
+  function navFx() {
+    const hero = document.querySelector('[data-screen-label="hero"]');
+    const solid = hero ? hero.getBoundingClientRect().top < -8 : scrollY > 8;
+    if (solid !== state.navSolid) setState({ navSolid: solid });
+  }
+
+  // Headings rise in word by word; [data-reveal] blocks fade up, when they scroll into view.
+  let rio = null;
+  function revealInit() {
+    if (reducedMotion || !('IntersectionObserver' in window)) return;
+    rio = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) { rio.unobserve(en.target); revealPlay(en.target); } }), { threshold: 0.2, rootMargin: '0px 0px -8% 0px' });
+    revealScan();
+  }
+  function revealScan() {
+    if (!rio) return;
+    app.querySelectorAll('h1:not([data-rx]),h2:not([data-rx]),[data-reveal]:not([data-rx])').forEach(el => {
+      el.setAttribute('data-rx', '1');
+      if (el.tagName === 'H1' || el.tagName === 'H2') el.style.visibility = 'hidden';
+      else { el.style.opacity = '0'; el.style.transform = 'translateY(32px)'; }
+      if (el.tagName === 'H1') setTimeout(() => revealPlay(el), 150); else rio.observe(el);
+    });
+  }
+  function revealPlay(el) {
+    if (el.tagName !== 'H1' && el.tagName !== 'H2') {
+      const sib = el.parentElement ? Math.min(4, [...el.parentElement.children].indexOf(el)) : 0;
+      el.style.transition = 'opacity 900ms cubic-bezier(.2,.6,.2,1) ' + (sib * 80) + 'ms, transform 900ms cubic-bezier(.2,.8,.2,1) ' + (sib * 80) + 'ms';
+      requestAnimationFrame(() => { el.style.opacity = '1'; el.style.transform = 'none'; });
       return;
     }
-    const i = Number(el.dataset.i);
-    switch (el.dataset.act) {
-      case 'region': setState({ regionOpen: !state.regionOpen, langOpen: false }); break;
-      case 'langmenu': setState({ langOpen: !state.langOpen, regionOpen: false }); break;
-      case 'country': setState({ country: el.dataset.cc, lang: null, regionOpen: false, feat: 0, openFaq: -1 }); break;
-      case 'lang': setState({ lang: el.dataset.l, regionOpen: false, langOpen: false }); break;
-      case 'feat-jump': {
-        const el = document.querySelectorAll('.feat-step')[i];
-        if (el) scrollTo({ top: el.getBoundingClientRect().top + scrollY - innerHeight * 0.15, behavior: 'smooth' });
-        break;
-      }
-      case 'faq': setState({ openFaq: state.openFaq === i ? -1 : i }); break;
-    }
-  });
+    const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+    const c = el.cloneNode(true); c.removeAttribute('id'); c.setAttribute('aria-hidden', 'true');
+    Object.assign(c.style, { position: 'absolute', left: (r.left + scrollX) + 'px', top: (r.top + scrollY) + 'px', width: (Math.ceil(r.width) + 4) + 'px', margin: '0', fontSize: cs.fontSize, fontWeight: cs.fontWeight, lineHeight: cs.lineHeight, letterSpacing: cs.letterSpacing, textWrap: cs.textWrap || 'wrap', pointerEvents: 'none', zIndex: '5', visibility: 'visible', color: cs.color, direction: cs.direction, textAlign: cs.textAlign, fontFamily: cs.fontFamily });
+    let n = 0;
+    const walk = node => [...node.childNodes].forEach(t => {
+      if (t.nodeType === 3) {
+        const f = document.createDocumentFragment();
+        t.textContent.split(/(\s+)/).forEach(part => {
+          if (!part) return; if (/^\s+$/.test(part)) { f.appendChild(document.createTextNode(' ')); return; }
+          const o = document.createElement('span'); o.style.cssText = 'display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.12em;margin-bottom:-.12em';
+          const w = document.createElement('span'); w.textContent = part; w.style.cssText = 'display:inline-block;transform:translateY(110%) rotate(4deg);transform-origin:0 100%;transition:transform 1000ms cubic-bezier(.2,.8,.2,1) ' + (n++ * 60) + 'ms';
+          o.appendChild(w); f.appendChild(o);
+        });
+        t.replaceWith(f);
+      } else if (t.nodeType === 1) walk(t);
+    });
+    walk(c); document.body.appendChild(c);
+    requestAnimationFrame(() => requestAnimationFrame(() => c.querySelectorAll('span > span').forEach(w => { w.style.transform = 'none'; })));
+    setTimeout(() => { el.style.visibility = ''; c.remove(); }, 1000 + n * 60 + 50);
+  }
 
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && (state.regionOpen || state.langOpen)) setState({ regionOpen: false, langOpen: false });
+  let replIO = null;
+  function afterRender() {
+    revealScan();
+    stackFx();
+    hwFx();
+    if (!replIO && refs.repl.current) {
+      if ('IntersectionObserver' in window) {
+        replIO = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { setState({ replIn: true }); replIO.disconnect(); } }, { threshold: 0.3 });
+        replIO.observe(refs.repl.current);
+      } else setState({ replIn: true });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Global events
+  // ---------------------------------------------------------------------------
+
+  let raf = 0;
+  const onScroll = () => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; stackFx(); hwFx(); navFx(); }); };
+  addEventListener('scroll', onScroll, { passive: true });
+  addEventListener('resize', () => { sizeHw(); onScroll(); });
+
+  // Close the market / language menus and the store-type list on an outside press or Escape.
+  document.addEventListener('mousedown', e => {
+    if (state.shopOpen && refs.shop.current && !refs.shop.current.contains(e.target)) setState({ shopOpen: false });
+    const nav = document.querySelector('[data-screen-label="nav"]');
+    const inMenu = nav && [...nav.querySelectorAll('button')].some(b => b.parentElement.contains(e.target));
+    if ((state.regionOpen || state.langOpen) && !inMenu) setState({ regionOpen: false, langOpen: false });
   });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && (state.regionOpen || state.langOpen)) setState({ regionOpen: false, langOpen: false }); });
 
   // Call-back form: hand the details to WhatsApp so the team gets them straight away.
-  document.addEventListener('submit', e => {
-    if (e.target.id !== 'callback') return;
-    e.preventDefault();
-    const f = e.target.elements;
-    const msg = `Hi Edukaan, please call me back.\nName: ${f.namedItem('name').value}\nWhatsApp: ${f.namedItem('phone').value}\nStore type: ${f.namedItem('type').value}\nMarket: ${COPY.en.names[country()]}`;
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('#contact button');
+    if (!btn || btn.closest('[role="listbox"]') || btn.hasAttribute('aria-haspopup')) return;
+    const [name, phone] = [...document.querySelectorAll('#contact input')].map(i => i.value.trim());
+    if (!name || !phone) { document.querySelector('#contact input:placeholder-shown')?.focus(); return; }
+    const shop = state.shop ?? (DATA.en.retail[country()] || [])[0];
+    const msg = `Hi Edukaan, please call me back.\nName: ${name}\nWhatsApp: ${phone}\nStore type: ${shop}\nMarket: ${COUNTRY_NAMES[country()]}`;
     window.open(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
   });
 
   render();
-  let raf = 0;
-  const onScroll = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; pickFeat(); }); };
-  addEventListener('scroll', onScroll, { passive: true });
-  addEventListener('resize', onScroll);
-  setTimeout(pickFeat, 300);
-  // Hero tablet swings in from a slight angle shortly after load.
-  setTimeout(() => { state.posIn = true; document.querySelector('.pos')?.classList.add('in'); }, reducedMotion ? 0 : 600);
-  if (config.animateDemo) setInterval(() => { if (!document.hidden) { state.tick++; renderPos(); } }, 110);
+  navFx();
+  setTimeout(revealInit, 50);
+  setTimeout(stackFx, 300);
+  setTimeout(() => { sizeHw(); hwFx(); }, 400);
+  setTimeout(() => { sizeHw(); hwFx(); }, 1500);
 })();
