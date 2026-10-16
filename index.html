@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<!-- GitHub Pages fallback. While Pages is set to "Deploy from a branch", it serves this repository's root,
+     so this file forwards visitors to the page in public/ (keeping ?country=… and other options).
+     Once Pages is set to "GitHub Actions", the workflow publishes public/ itself and this file is not used.
+     The NestJS server serves public/ directly and never sees this file. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Edukaan POS</title>
+  <script>location.replace('public/' + location.search + location.hash);</script>
+  <meta http-equiv="refresh" content="0; url=public/">
+</head>
+<body><p><a href="public/">Edukaan POS</a></p></body>
+</html>
