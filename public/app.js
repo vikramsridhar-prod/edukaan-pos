@@ -400,13 +400,21 @@
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && (state.regionOpen || state.langOpen)) setState({ regionOpen: false, langOpen: false }); });
 
-  // Call-back form: hand the details to WhatsApp so the team gets them straight away.
+  // Call-back form: save the request with the NestJS API (POST /api/leads) and hand the details to WhatsApp
+  // so the team gets them straight away. On a static host with no API (e.g. GitHub Pages) the save fails
+  // quietly and WhatsApp still opens.
   document.addEventListener('click', e => {
     const btn = e.target.closest('#contact button');
     if (!btn || btn.closest('[role="listbox"]') || btn.hasAttribute('aria-haspopup')) return;
     const [name, phone] = [...document.querySelectorAll('#contact input')].map(i => i.value.trim());
     if (!name || !phone) { document.querySelector('#contact input:placeholder-shown')?.focus(); return; }
     const shop = state.shop ?? (DATA.en.retail[country()] || [])[0];
+    fetch('api/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone, storeType: shop, market: country(), lang: lang() }),
+      keepalive: true,
+    }).catch(() => {});
     const msg = `Hi Edukaan, please call me back.\nName: ${name}\nWhatsApp: ${phone}\nStore type: ${shop}\nMarket: ${COUNTRY_NAMES[country()]}`;
     window.open(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
   });

@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 
 const src = process.argv[2];
 if (!src) { console.error('usage: node tools/sync-design.mjs <design .dc.html>'); process.exit(1); }
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const html = readFileSync(src, 'utf8');
 
 const cut = (from, to, start = 0) => {
