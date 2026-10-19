@@ -1,6 +1,6 @@
 # EdukaanPOS
 
-Landing page for Edukaan POS, built from the Claude Design file "Edukaan POS Page v8" (Cargo 3.0 design system).
+Landing page for Edukaan POS, built from the Claude Design file "Edukaan POS Page v9" (Cargo 3.0 design system).
 
 The page is a static site in `public/`, served by a small [NestJS](https://nestjs.com) server that also stores call-back requests from the contact form.
 
