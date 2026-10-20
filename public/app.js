@@ -281,7 +281,7 @@
       ...(i === nf - 1 ? { cardBg: '#091233', fg: '#fff', muted: '#C3CBE8', pillBg: '#1E2A5A', rule: '#2A3666' } : { cardBg: '#f3f4f5', fg: '#1b1c1d', muted: '#505153', pillBg: '#fff', rule: '#dcdee0' }),
       ref: featRefs[i],
     }));
-    const plans = d.plans.map((p, i) => {
+    const plans = d.plans.map(p => (l === 'ar' && c === 'AE' && p.items) ? { ...p, ...(p.priceLabel === 'مخصص' ? { priceLabel: 'سعر حسب احتياجاتك', desc: 'فروع ومستخدمون وأجهزة تشغيل بلا حدود' } : {}), items: p.items.map(x => ({ 'جهاز دفع مدمج': 'جهاز دفع متكامل', 'تقسيط — تابي وتمارا': 'اشترِ الآن وادفع لاحقاً مع تابي وتمارا', 'تكامل مع متجرين إلكترونيين': 'الربط بمنصّتَي بيع إلكترونيتين', 'مخزون مباشر لفرع واحد': 'جرد لحظي لفرع واحد', 'مستخدمون وتركيبات غير محدودة': 'مستخدمون وأجهزة تشغيل بلا حدود', 'قنوات متاجر إلكترونية غير محدودة': 'الربط بعدد غير محدود من منصات البيع الإلكترونية', 'تكاملات ERP مخصصة وواجهة API مفتوحة': 'تكاملات مخصصة وربط بأنظمة إدارة موارد المؤسسة (ERP)، وواجهة برمجة تطبيقات مفتوحة (API)' })[x] || x) } : p).map((p, i) => {
       const hi = i === 1;
       return { ...p, price: p.price ? `${cur} ${p.price}` : p.priceLabel, hasExcluded: !!(p.excluded && p.excluded.length), excluded: p.excluded || [], lead: p.lead || null, keyItems: p.items.slice(0, 4), per: p.price ? p.desc.split(' · ')[0] : null, desc: p.price ? p.desc.split(' · ').slice(1).join(' · ') : p.desc, popular: hi ? (t.priceBadgePopular || 'Most popular') : null, outerPad: hi ? '0 4px 4px' : '0', outerMt: hi ? '0' : '36px', outerBg: hi ? 'linear-gradient(180deg,#FFD866 0%,#FCB808 55%,#C98F00 100%)' : 'transparent', outerShadow: hi ? '0 24px 48px -24px rgba(252,184,8,.45)' : 'none', innerBorder: hi ? 'transparent' : '#e6e8ea', innerShadow: hi ? 'none' : '0 1px 2px rgba(8,9,10,.05),0 16px 32px -24px rgba(8,9,10,.18)', colBg: hi ? '#FFFAEB' : 'transparent', btnBg: hi ? '#FCB808' : '#fff', btnFg: hi ? '#021B18' : '#1b1c1d', btnBorder: hi ? '#FCB808' : '#d3d4d6', btnSize: '16px', badge: null };
     });
@@ -293,7 +293,9 @@
       { name: 'Finance & reporting', rows: [['Tax-compliant invoicing', Y, Y, Y], ['Accounting module', 'Basic', 'Advanced', 'Advanced'], ['Reports', 'Standard', 'Advanced analytics', 'Advanced analytics'], ['QFunder credit line', N, N, Y]] },
       { name: 'Integrations & support', rows: [['Custom & ERP integrations, open API', N, N, Y], ['Custom development', N, N, Y], ['Data migration', N, N, 'White-glove'], ['Support', 'Email', 'Priority, extended hours', 'Dedicated CSM · SLA']] },
     ];
-    const cmpGroups = cmpData.map(g => ({ name: g.name, rows: g.rows.map(r => ({ label: r[0], cells: r.slice(1).map((v, ci) => ({ yes: v !== false, no: v === false, text: v === true ? 'Included' : v === false ? '' : v, bg: ci === 1 ? '#FFFAEB' : 'transparent' })) })) }));
+    const cmpVal = (l === 'ar' && c === 'AE') ? {"Up to 3":"حتى 3 مستخدمين","1 register":"نقطة بيع واحدة","Included":"مشمول","One outlet":"فرع واحد","Basic":"أساسي","Standard":"تقارير قياسية","Email":"البريد الإلكتروني","Up to 10":"حتى 10 فروع","Up to 30":"حتى 30 مستخدماً","Per outlet":"لكل فرع","All outlets":"جميع الفروع","2 channels":"منصّتان","Advanced":"متقدم","Advanced analytics":"تحليلات متقدمة","Priority, extended hours":"أولوية في الدعم وساعات خدمة ممتدة","Unlimited":"بلا حدود","White-glove":"خدمة شاملة لنقل البيانات","Dedicated CSM · SLA":"مدير مخصص لنجاح العملاء"} : {};
+    const cmpAr = (l === 'ar' && c === 'AE') ? {"Outlets & users":"الفروع والمستخدمون","Outlets":"الفروع","Users":"المستخدمون","Installations":"أجهزة تشغيل النظام","Selling":"البيع","Catalogue, search & cart":"قائمة المنتجات والبحث وسلة المشتريات","IMEI & serial capture":"تسجيل أرقام IMEI والأرقام التسلسلية","Cash payments":"الدفع النقدي","Integrated payment terminal":"جهاز دفع متكامل","BNPL — Tabby & Tamara":"اشترِ الآن وادفع لاحقاً مع تابي وتمارا","Promotions, VAS & loyalty":"العروض الترويجية والخدمات الإضافية وبرامج الولاء","Stock & channels":"المخزون وقنوات البيع","Real-time stock":"جرد لحظي","Marketplace integrations":"الربط بمنصات البيع الإلكترونية","Smart replenishment from Tradeling":"تجديد المخزون بذكاء من تريدلينج","AI recommendations & auto-cataloguing":"توصيات وإضافة المنتجات إلى القائمة تلقائياً بالذكاء الاصطناعي","Finance & reporting":"المحاسبة والتقارير","Tax-compliant invoicing":"فواتير متوافقة مع المتطلبات الضريبية","Accounting module":"نظام المحاسبة","Reports":"التقارير","QFunder credit line":"حد ائتماني من QFunder","Integrations & support":"التكاملات والدعم","Custom & ERP integrations, open API":"تكاملات مخصصة وربط بأنظمة ERP، وواجهة API مفتوحة","Custom development":"تطوير مخصص","Data migration":"نقل البيانات","Support":"الدعم"} : {};
+    const cmpGroups = cmpData.map(g => ({ name: cmpAr[g.name] || g.name, rows: g.rows.map(r => ({ label: cmpAr[r[0]] || r[0], cells: r.slice(1).map((v, ci) => ({ yes: v !== false, no: v === false, text: (x => cmpVal[x] || x)(v === true ? 'Included' : v === false ? '' : v), bg: ci === 1 ? '#FFFAEB' : 'transparent' })) })) }));
 
     // Reporting: "Product velocity" chart derived from top sellers / slow movers.
     const chart = (() => {
@@ -311,37 +313,38 @@
       const tip = hv == null || hv < 0 ? null : { x: X(hv) / 3 + '%', tf: hv === 0 ? 'translateX(-10%)' : hv === 3 ? 'translateX(-90%)' : 'translateX(-50%)', label: labels[hv], rows: [...top.map((r, j) => ({ item: r.item, n: wk[hv].top[j], c: '#2f9e44' })), ...slow.map((r, j) => ({ item: r.item, n: wk[hv].slow[j], c: '#25D366' }))] };
       const ct = state.chartTab;
       return {
-        chartTabs: [['rev', t.repChart], ['vel', l === 'ar' ? 'حركة المنتجات' : 'Product velocity']].map(([k, label]) => ({ label, go: () => setState({ chartTab: k }), bg: ct === k ? '#fff' : 'transparent', fg: ct === k ? '#1b1c1d' : '#505153', sh: ct === k ? '0 1px 2px rgba(8,9,10,.08),inset 0 0 0 1px #e6e8ea' : 'none' })),
+        chartTabs: [['rev', t.repChart], ['vel', l === 'ar' ? (c === 'AE' ? 'معدل بيع المنتجات' : 'حركة المنتجات') : 'Product velocity']].map(([k, label]) => ({ label, go: () => setState({ chartTab: k }), bg: ct === k ? '#fff' : 'transparent', fg: ct === k ? '#1b1c1d' : '#505153', sh: ct === k ? '0 1px 2px rgba(8,9,10,.08),inset 0 0 0 1px #e6e8ea' : 'none' })),
         showRev: ct === 'rev', showVel: ct === 'vel', chartNote: ct === 'rev' ? t.repChartNote : (l === 'ar' ? 'وحدات أسبوعياً · مرّر للتفاصيل' : 'Units per week · hover for detail'),
         velLineTop: line(tT), velAreaTop: line(tT) + 'L' + X(3) + ' 120L' + X(0) + ' 120Z', velLineSlow: line(tS), velGuide: tip ? 'M' + X(hv) + ' 0V120' : '', velPts: pts, velTip: tip,
         velLeave: () => setState({ velHover: -1 }), velCols: labels.map((lab, i) => ({ label: lab, enter: () => setState({ velHover: i }) })),
       };
     })();
 
+    const hub = d.hub.map((x, i) => ({ ...x, ...((d.hubOv && d.hubOv[c] && d.hubOv[c][i]) || {}) }));
     const types = [...(d.retail[c] || []), OTHER[l] || OTHER.en];
-    const shopSel = state.shop ?? types[0];
+    const shopSel = types.includes(state.shop) ? state.shop : types[0];
     const shopOpen = state.shopOpen;
     const shopIsOther = shopSel === types[types.length - 1];
 
     // Hero headline: the "POS" in heroC becomes a yellow "Smart POS" (Arabic: "نقاط البيع الذكية").
     const hc = t.heroC || '', hm = hc.match(/POS|نقاط البيع/), hi0 = hm ? hm.index : -1;
-    const smart = SMART[l] || SMART.en;
+    const smart = [t.heroSmart || (SMART[l] || SMART.en)[0], (SMART[l] || SMART.en)[1]];
     const posWord = smart[1] === 'before' ? `<span>${esc(smart[0])}</span> ${esc(hm && hm[0])}` : `${esc(hm && hm[0])} <span>${esc(smart[0])}</span>`;
 
     return {
       heroPre: hm ? hc.slice(0, hi0) : hc, heroPosWord: hm ? { html: `<span style="color:#FCB808;white-space:nowrap">${posWord}</span>` } : '', heroPost: hm ? hc.slice(hi0 + hm[0].length) : '',
-      saOnlyDisp: sa ? 'inline' : 'none',
+      saOnlyDisp: sa ? 'inline' : 'none', phoneAlign: ar ? 'right' : 'left',
       navBg: state.navSolid ? 'rgba(30,57,162,.92)' : 'transparent', navBlur: state.navSolid ? 'blur(12px)' : 'none', navLine: state.navSolid ? 'rgba(255,255,255,.14)' : 'transparent',
       dir: ar ? 'rtl' : 'ltr', isRtl: ar, isLtr: !ar, heroFlip: 'none', bidi: l === 'ur' || l === 'hi' ? 'mixed' : 'none', t, isSA: sa, isAE: !sa, showPricing: props.showPricing,
       countryLabel: { AE: 'UAE', SA: 'KSA' }[c] || c, countryFlag: FLAGS[c], regionOpen: state.regionOpen, toggleRegion: () => setState({ regionOpen: !state.regionOpen, langOpen: false }), countries,
       langs, langLabel: LANG_LABELS[l], langOpen: state.langOpen, toggleLang: () => setState({ langOpen: !state.langOpen, regionOpen: false }),
       retailTypes: d.retail[c] || [], features,
-      receipt: d.receipt[c], steps: d.steps.map((s, i) => ({ n: String(i + 1).padStart(2, '0'), ...s })), stepLine: stepLine(ar),
-      cmpGroups, cmpRows: state.cmpOpen ? '1fr' : '0fr', cmpChevron: state.cmpOpen ? 'rotate(180deg)' : 'rotate(0deg)', cmpLabel: state.cmpOpen ? 'Hide full comparison' : 'Compare all features', cmpTitle: 'Compare features by plan', cmpSub: 'Every feature, side by side.', cmpFeature: 'Feature', toggleCmp: () => setState({ cmpOpen: !state.cmpOpen }),
-      hwCards: d.hardware.slice(0, 5).map((x, i) => { const on = state.hwHover === i; const img = ['terminal', 'printer', 'scanner', 'drawer', 'card'][i]; return { ...x, imgUrl: 'url(assets/hw-' + img + '-cut.png)', glow: on ? 1 : 0, scale: on ? 'scale(1.1) translateY(-4%)' : 'scale(1)', enter: () => setState({ hwHover: i }), leave: () => setState({ hwHover: -1 }) }; }),
+      receipt: d.receipt[c], steps: ((d.stepsOv && d.stepsOv[c]) || d.steps).map((s, i) => ({ n: String(i + 1).padStart(2, '0'), ...s })), stepLine: stepLine(ar),
+      cmpGroups, cmpRows: state.cmpOpen ? '1fr' : '0fr', cmpChevron: state.cmpOpen ? 'rotate(180deg)' : 'rotate(0deg)', cmpLabel: state.cmpOpen ? (l === 'ar' && c === 'AE' ? 'إخفاء المقارنة الكاملة' : 'Hide full comparison') : (l === 'ar' && c === 'AE' ? 'قارن جميع المزايا' : 'Compare all features'), cmpTitle: l === 'ar' && c === 'AE' ? 'قارن مزايا الباقات' : 'Compare features by plan', cmpSub: l === 'ar' && c === 'AE' ? 'كل المزايا، جنباً إلى جنب' : 'Every feature, side by side.', cmpFeature: l === 'ar' && c === 'AE' ? 'الميزة' : 'Feature', toggleCmp: () => setState({ cmpOpen: !state.cmpOpen }),
+      hwCards: ((d.hardwareOv && d.hardwareOv[c]) || d.hardware).slice(0, 5).map((x, i) => { const on = state.hwHover === i; const img = ['terminal', 'printer', 'scanner', 'drawer', 'card'][i]; return { ...x, imgUrl: 'url(assets/hw-' + img + '-cut.png)', glow: on ? 1 : 0, scale: on ? 'scale(1.1) translateY(-4%)' : 'scale(1)', enter: () => setState({ hwHover: i }), leave: () => setState({ hwHover: -1 }) }; }),
       plans,
-      hubTop: d.hub.slice(0, 3).map((x, i) => ({ ...x, ...ISO[i] })), hubBottom: d.hub.slice(3, 6).map((x, i) => ({ ...x, ...ISO[i + 3] })), hubStats: d.hubStats,
-      repPoints: d.repPoints, ...chart,
+      hubTop: hub.slice(0, 3).map((x, i) => ({ ...x, ...ISO[i] })), hubBottom: hub.slice(3, 6).map((x, i) => ({ ...x, ...ISO[i + 3] })), hubStats: d.hubStats,
+      repPoints: (d.repPointsOv && d.repPointsOv[c]) || d.repPoints, ...chart,
       repKpis: d.rep[c].kpis.map(k => ({ ...k, v: k.cur ? `${cur} ${k.v}` : k.v, color: k.d.startsWith('−') || k.d.startsWith('-') ? '#9b1106' : '#217220' })),
       repBars: [62, 48, 55, 71, 44, 88, 100].map((h, i) => ({ h: h + '%', day: d.days[i], color: i === 6 ? '#25D366' : '#d3d4d6' })),
       replRef: refs.repl, repl: d.repl[c].map((r, ri) => ({ ...r, op: state.replIn ? 1 : 0, tf: state.replIn ? 'translateY(0)' : 'translateY(16px)', delay: (ri * 140) + 'ms', barDelay: (300 + ri * 140) + 'ms', pctNow: state.replIn ? r.pct : '0%', badgeBg: r.level === 'low' ? '#E9FAF0' : r.level === 'ordered' ? '#dcf0fa' : '#eefaed', badgeFg: r.level === 'low' ? '#128C4A' : r.level === 'ordered' ? '#026c8c' : '#217220', barColor: r.level === 'low' ? '#25D366' : r.level === 'ordered' ? '#06b5eb' : '#37b237' })),
