@@ -51,7 +51,8 @@ When `CRM_LEADS_URL` is set, each request is also sent to the Tradeling CRM lead
 | `contact_name` | Your name |
 | `email` | Email (optional; left out when empty) |
 | `phone` | Mobile or WhatsApp number |
-| `buyer_segment` | Store type in English ("Mobile shop", "Baqala", "Café", …), or what the visitor typed after choosing "Other" |
+| `category` | Store type in English ("Mobile shop", "Baqala", "Café", …), or what the visitor typed after choosing "Other" |
+| `buyer_segment` | `CRM_BUYER_SEGMENT` (default `sme`; the CRM accepts `sme` or `enterprise`) |
 | `message` | "Call-back request from the Edukaan POS landing page", with market, language and store type |
 | `page_url` | The landing page address |
 

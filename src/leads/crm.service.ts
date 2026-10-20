@@ -11,12 +11,13 @@ export interface CrmLead {
   phone: string;
   message: string;
   page_url?: string;
-  buyer_segment?: string;
+  category?: string;
+  buyer_segment: string;
 }
 
 const MARKETS = { AE: 'UAE', SA: 'KSA' } as const;
 
-export function toCrmLead(lead: Lead, formType = 'POS'): CrmLead {
+export function toCrmLead(lead: Lead, formType = 'POS', buyerSegment = 'sme'): CrmLead {
   return {
     form_type: formType,
     company_name: lead.companyName,
@@ -26,7 +27,8 @@ export function toCrmLead(lead: Lead, formType = 'POS'): CrmLead {
     message: `Call-back request from the Edukaan POS landing page. Market: ${MARKETS[lead.market]}. Language: ${lead.lang ?? 'en'}.`
       + (lead.storeType ? ` Store type: ${lead.storeType}.` : ''),
     ...(lead.pageUrl ? { page_url: lead.pageUrl } : {}),
-    ...(lead.storeType ? { buyer_segment: lead.storeType } : {}),
+    ...(lead.storeType ? { category: lead.storeType } : {}),
+    buyer_segment: buyerSegment,
   };
 }
 
@@ -45,12 +47,14 @@ export class CrmService {
   private readonly apiKey?: string;
   private readonly apiKeyHeader: string;
   private readonly formType: string;
+  private readonly buyerSegment: string;
 
   constructor(config: ConfigService) {
     this.url = config.get<string>('CRM_LEADS_URL') || undefined;
     this.apiKey = config.get<string>('CRM_API_KEY') || undefined;
     this.apiKeyHeader = config.get<string>('CRM_API_KEY_HEADER') || 'x-api-key';
     this.formType = config.get<string>('CRM_FORM_TYPE') || 'POS';
+    this.buyerSegment = config.get<string>('CRM_BUYER_SEGMENT') || 'sme';
   }
 
   get enabled() {
@@ -70,7 +74,7 @@ export class CrmService {
           ...(recaptchaToken ? { 'g-recaptcha-response': recaptchaToken } : {}),
           ...(this.apiKey ? { [this.apiKeyHeader]: this.apiKey } : {}),
         },
-        body: JSON.stringify(toCrmLead(lead, this.formType)),
+        body: JSON.stringify(toCrmLead(lead, this.formType, this.buyerSegment)),
         signal: AbortSignal.timeout(10_000),
       });
       if (res.ok) return true;

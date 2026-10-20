@@ -82,7 +82,8 @@ describe('Edukaan POS (e2e)', () => {
       phone: '+971 50 123 4567',
       message: 'Call-back request from the Edukaan POS landing page. Market: UAE. Language: en. Store type: Baqala.',
       page_url: 'https://edukaan.example/',
-      buyer_segment: 'Baqala',
+      category: 'Baqala',
+      buyer_segment: 'sme',
     });
   });
 
@@ -95,7 +96,7 @@ describe('Edukaan POS (e2e)', () => {
     expect(call.headers).not.toHaveProperty('g-recaptcha-response');
     expect(call.headers['x-country']).toBe('sa');
     expect(call.headers['x-language']).toBe('ar');
-    expect(call.body).toMatchObject({ form_type: 'POS', buyer_segment: 'Perfume shop', company_name: 'Bakr Perfumes', email: 'omar@bakr.sa' });
+    expect(call.body).toMatchObject({ form_type: 'POS', category: 'Perfume shop', buyer_segment: 'sme', company_name: 'Bakr Perfumes', email: 'omar@bakr.sa' });
   });
 
   it('gives the page its reCAPTCHA site key from the environment', async () => {
