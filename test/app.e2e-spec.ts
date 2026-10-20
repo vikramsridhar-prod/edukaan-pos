@@ -53,6 +53,19 @@ describe('Edukaan POS (e2e)', () => {
     await request(app.getHttpServer()).get('/assets/flag-ae.svg').expect(200);
   });
 
+  it('serves the page at every market + language slug', async () => {
+    for (const slug of ['ae-en', 'ae-ar', 'sa-en', 'sa-ar', 'ae-hi', 'ae-ur']) {
+      const res = await request(app.getHttpServer()).get(`/${slug}`).expect(200);
+      expect(res.text).toContain('<div id="app"></div>');
+    }
+  });
+
+  it('redirects slug variants to the canonical lower-case URL without a trailing slash', async () => {
+    await request(app.getHttpServer()).get('/ae-en/').expect(301).expect('Location', '/ae-en');
+    await request(app.getHttpServer()).get('/SA-AR').expect(301).expect('Location', '/sa-ar');
+    await request(app.getHttpServer()).get('/Sa-En/?pricing=0').expect(301).expect('Location', '/sa-en?pricing=0');
+  });
+
   it('reports health', () => request(app.getHttpServer()).get('/api/health').expect(200, { status: 'ok' }));
 
   it('returns 404 JSON for unknown API routes instead of the page', async () => {
