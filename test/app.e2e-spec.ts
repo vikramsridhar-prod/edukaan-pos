@@ -29,6 +29,7 @@ describe('Edukaan POS (e2e)', () => {
     process.env.CRM_API_KEY = 'test-crm-key';
     process.env.RECAPTCHA_SITE_KEY = 'test-site-key';
     process.env.RATE_LIMIT = '100';
+    process.env.CRM_FORM_TYPE = 'POS';
     process.env.LEADS_FILE = leadsFile();
     process.env.LEADS_TOKEN = 'test-token';
     // Boot exactly like main.ts. (Test.createTestingModule would build ServeStaticModule before the

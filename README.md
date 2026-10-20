@@ -46,7 +46,7 @@ When `CRM_LEADS_URL` is set, each request is also sent to the Tradeling CRM lead
 
 | CRM field | From the form |
 | --- | --- |
-| `form_type` | Always `POS` |
+| `form_type` | `CRM_FORM_TYPE` (default `POS`) |
 | `company_name` | Company or shop name |
 | `contact_name` | Your name |
 | `email` | Email (optional; left out when empty) |

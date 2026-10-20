@@ -4,7 +4,7 @@ import type { Lead } from './leads.service';
 
 /** The lead as the Tradeling CRM leads API expects it (POST {CRM_LEADS_URL}). */
 export interface CrmLead {
-  form_type: 'POS';
+  form_type: string;
   company_name: string;
   contact_name: string;
   email: string;
@@ -16,9 +16,9 @@ export interface CrmLead {
 
 const MARKETS = { AE: 'UAE', SA: 'KSA' } as const;
 
-export function toCrmLead(lead: Lead): CrmLead {
+export function toCrmLead(lead: Lead, formType = 'POS'): CrmLead {
   return {
-    form_type: 'POS',
+    form_type: formType,
     company_name: lead.companyName,
     contact_name: lead.name,
     email: lead.email,
@@ -44,11 +44,13 @@ export class CrmService {
   private readonly url?: string;
   private readonly apiKey?: string;
   private readonly apiKeyHeader: string;
+  private readonly formType: string;
 
   constructor(config: ConfigService) {
     this.url = config.get<string>('CRM_LEADS_URL') || undefined;
     this.apiKey = config.get<string>('CRM_API_KEY') || undefined;
     this.apiKeyHeader = config.get<string>('CRM_API_KEY_HEADER') || 'x-api-key';
+    this.formType = config.get<string>('CRM_FORM_TYPE') || 'POS';
   }
 
   get enabled() {
@@ -68,7 +70,7 @@ export class CrmService {
           ...(recaptchaToken ? { 'g-recaptcha-response': recaptchaToken } : {}),
           ...(this.apiKey ? { [this.apiKeyHeader]: this.apiKey } : {}),
         },
-        body: JSON.stringify(toCrmLead(lead)),
+        body: JSON.stringify(toCrmLead(lead, this.formType)),
         signal: AbortSignal.timeout(10_000),
       });
       if (res.ok) return true;
