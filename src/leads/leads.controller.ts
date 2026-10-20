@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Post, UseGuards } from '@nestjs/common';
 import { CreateLeadDto } from './create-lead.dto';
 import { LeadsTokenGuard } from './leads-token.guard';
 import { LeadsService } from './leads.service';
@@ -10,8 +10,9 @@ export class LeadsController {
   /** Called by the landing page's "request a call back" form. */
   @Post()
   @HttpCode(201)
-  async create(@Body() dto: CreateLeadDto) {
-    const lead = await this.leads.create(dto);
+  async create(@Body() dto: CreateLeadDto, @Headers('g-recaptcha-response') recaptchaToken?: string) {
+    // The reCAPTCHA token comes from the page and is passed through to the CRM; it is never stored.
+    const lead = await this.leads.create(dto, recaptchaToken?.slice(0, 4000));
     return { id: lead.id };
   }
 
