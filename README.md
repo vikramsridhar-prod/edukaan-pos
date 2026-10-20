@@ -78,10 +78,25 @@ The contact form (name, company, phone, email, store type) posts to `/api/leads`
 
 3. If the design's `Component` logic changed (new bindings in the template), port the change into `vals()` in `public/app.js`. Any `{{ name }}` the template uses must be returned from `vals()`.
 
+## Page addresses
+
+Each market + language has its own address, for linking from ads, emails and the main Tradeling site:
+
+| Address | Version |
+| --- | --- |
+| `/ae-en` | UAE, English |
+| `/ae-ar` | UAE, Arabic |
+| `/sa-en` | KSA, English |
+| `/sa-ar` | KSA, Arabic |
+
+`/ae-hi`, `/ae-ur`, `/sa-hi` and `/sa-ur` work too (Hindi, Urdu). The server redirects variants such as `/AE-EN` or `/ae-en/` to the lower-case address without a trailing slash. Changing the market or language in the page's menus updates the address (keeping the visitor's language when they switch market), and the page sets a canonical link plus `hreflang` alternates for the four main versions. The bare home page (`/`) shows UAE English until the visitor picks something.
+
+These addresses need the Node server; on GitHub Pages only the home page loads directly.
+
 ## URL options
 
-- `?country=SA` opens the page for the KSA market. Arabic is the default for KSA.
-- `?lang=en`, `?lang=ar`, `?lang=hi` (Hindi) or `?lang=ur` (Urdu) forces a language. Hindi and Urdu fall back to English for anything not yet translated.
+- `?country=SA` and `?lang=en|ar|hi|ur` still work on the home page (the addresses above take precedence). Arabic is the default for KSA.
+- The language can also be forced with `?lang=en`, `?lang=ar`, `?lang=hi` (Hindi) or `?lang=ur` (Urdu). Hindi and Urdu fall back to English for anything not yet translated.
 - `?pricing=0` hides the pricing section.
 
 ## Still to do

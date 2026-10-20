@@ -12,9 +12,16 @@
   const RECAPTCHA_ACTION = 'contactUs';
   const params = new URLSearchParams(location.search);
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Market + language come from the URL slug (/ae-en, /ae-ar, /sa-en, /sa-ar, also -hi / -ur), falling back to
+  // ?country= / ?lang= and then to UAE with the market's default language. The slug is the page's last path segment,
+  // so the site also works under a sub-path.
+  const SLUG = /^(ae|sa)-(en|ar|hi|ur)$/;
+  const pathParts = location.pathname.split('/');
+  const slug = SLUG.exec((pathParts[pathParts.length - 1] || '').toLowerCase());
+  const basePath = pathParts.slice(0, -1).join('/') + '/';
   const props = {
-    country: params.get('country') === 'SA' ? 'SA' : 'AE',
-    lang: LANGS.includes(params.get('lang')) ? params.get('lang') : 'auto',
+    country: slug ? slug[1].toUpperCase() : params.get('country') === 'SA' ? 'SA' : 'AE',
+    lang: slug ? slug[2] : LANGS.includes(params.get('lang')) ? params.get('lang') : 'auto',
     showPricing: params.get('pricing') !== '0',
   };
 
@@ -272,7 +279,8 @@
     const t = { ...COPY.en.base, ...COPY.en[c], ...CL.base, ...CL[c] };
     const d = { ...DATA.en, ...(DATA[l] || {}) };
     const langs = LANGS.map(k => { const on = k === l; return { key: k, label: LANG_LABELS[k], active: on, bg: on ? '#E9FAF0' : 'transparent', pick: () => setState({ lang: k, langOpen: false }) }; });
-    const countries = ['AE', 'SA'].map(cc => ({ name: COUNTRY_NAMES[cc], flag: FLAGS[cc], ae: cc === 'AE', sa: cc === 'SA', active: cc === c, bg: cc === c ? '#E9FAF0' : 'transparent', pick: () => setState({ country: cc, lang: null, regionOpen: false, openFaq: 0, shop: null }) }));
+    // Switching market keeps the language the visitor is reading in (so /ae-ar → /sa-ar).
+    const countries = ['AE', 'SA'].map(cc => ({ name: COUNTRY_NAMES[cc], flag: FLAGS[cc], ae: cc === 'AE', sa: cc === 'SA', active: cc === c, bg: cc === c ? '#E9FAF0' : 'transparent', pick: () => setState({ country: cc, lang: l, regionOpen: false, openFaq: 0, shop: null }) }));
     const faqs = d.faq[c].map((f, i) => ({ ...f, border: i === 0 ? 'none' : '1px solid #d3d4d6', open: state.openFaq === i, sign: state.openFaq === i ? '−' : '+', toggle: () => setState({ openFaq: state.openFaq === i ? -1 : i }) }));
     const nf = d.features[c].length;
     const features = d.features[c].map((f, i) => ({
@@ -374,8 +382,32 @@
     Object.assign(state, patch);
     if (scheduled) return;
     scheduled = true;
-    // requestAnimationFrame does not run in hidden tabs, so fall back to a timer there.
-    (document.hidden ? fn => setTimeout(fn, 16) : requestAnimationFrame)(() => { scheduled = false; render(); });
+    // Render on the next frame, or after 50ms if no frame comes (hidden or occluded tabs pause requestAnimationFrame).
+    let done = false;
+    const run = () => { if (done) return; done = true; scheduled = false; render(); };
+    requestAnimationFrame(run);
+    setTimeout(run, 50);
+  }
+
+  // Keep the address bar on the slug for the market and language on screen, so it can be copied as a direct link.
+  // A slug page always does this; the bare home page only once the visitor picks a market or language.
+  // Also keeps canonical / hreflang links in <head> pointing at the four main versions.
+  function syncUrl(l) {
+    if (!slug && state.country == null && state.lang == null) return;
+    const want = `${country().toLowerCase()}-${l}`;
+    const q = new URLSearchParams(location.search);
+    q.delete('country'); q.delete('lang');
+    const url = basePath + want + (q.toString() ? '?' + q : '') + location.hash;
+    if (url !== location.pathname + location.search + location.hash) history.replaceState(null, '', url);
+    const abs = s => new URL(basePath + s, location.origin).href;
+    const link = (rel, hreflang, href) => {
+      const sel = `link[rel="${rel}"]` + (hreflang ? `[hreflang="${hreflang}"]` : '');
+      const el = document.head.querySelector(sel) || document.head.appendChild(Object.assign(document.createElement('link'), { rel }));
+      if (hreflang) el.hreflang = hreflang;
+      el.href = href;
+    };
+    link('canonical', null, abs(want));
+    [['en-AE', 'ae-en'], ['ar-AE', 'ae-ar'], ['en-SA', 'sa-en'], ['ar-SA', 'sa-ar'], ['x-default', 'ae-en']].forEach(([h, s]) => link('alternate', h, abs(s)));
   }
 
   function render() {
@@ -383,6 +415,7 @@
     document.documentElement.lang = v.lang;
     document.documentElement.dir = v.dir;
     document.title = v.lang === 'ar' ? 'إدكان POS' : 'Edukaan POS';
+    syncUrl(v.lang);
     morphChildren(app, build(tplEl.content.childNodes, v, []));
     afterRender();
   }
