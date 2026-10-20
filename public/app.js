@@ -46,6 +46,8 @@
     document.head.appendChild(s);
   })();
 
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
   function lookup(path, scope) {
     if (path === 'true') return true;
     if (path === 'false') return false;
@@ -60,15 +62,22 @@
   function build(nodes, scope, out) {
     for (const node of nodes) {
       if (node.nodeType === 3) {
-        const m = ONLY_EXPR.exec(node.nodeValue);
-        const v = m ? lookup(m[1], scope) : null;
-        if (v && v.html !== undefined) {
-          const t = document.createElement('template');
-          t.innerHTML = v.html;
-          for (const c of t.content.childNodes) out.push(markStatic(c));
-        } else {
-          out.push(document.createTextNode(interp(node.nodeValue, scope)));
+        // Plain values join into text; {html} values (markup built in vals()) are parsed in place.
+        let text = '', pos = 0;
+        const flush = () => { if (text) out.push(document.createTextNode(text)); text = ''; };
+        for (const m of node.nodeValue.matchAll(EXPR)) {
+          text += node.nodeValue.slice(pos, m.index);
+          pos = m.index + m[0].length;
+          const v = lookup(m[1], scope);
+          if (v && v.html !== undefined) {
+            flush();
+            const t = document.createElement('template');
+            t.innerHTML = v.html;
+            for (const c of [...t.content.childNodes]) out.push(markStatic(c));
+          } else if (v != null && v !== false) text += String(v);
         }
+        text += node.nodeValue.slice(pos);
+        flush();
         continue;
       }
       if (node.nodeType !== 1) continue;
@@ -164,6 +173,10 @@
   const refs = { hw: { current: null }, hwTrack: { current: null }, hwBar: { current: null }, story: { current: null }, repl: { current: null }, shop: { current: null } };
   const featRefs = Array.from({ length: 6 }, () => ({ current: null }));
 
+  const OTHER = { en: 'Other', ar: 'أخرى', hi: 'अन्य', ur: 'دیگر' };
+  const OTHER_PH = { en: 'Your shop type', ar: 'نوع محلك', hi: 'आपकी दुकान का प्रकार', ur: 'آپ کی دکان کی قسم' };
+  const SMART = { en: ['Smart', 'before'], ar: ['الذكية', 'after'], hi: ['स्मार्ट', 'before'], ur: ['اسمارٹ', 'before'] };
+
   const country = () => state.country ?? props.country;
   const lang = () => state.lang || (props.lang !== 'auto' ? props.lang : country() === 'SA' ? 'ar' : 'en');
 
@@ -240,16 +253,24 @@
       };
     })();
 
-    const types = d.retail[c] || [];
+    const types = [...(d.retail[c] || []), OTHER[l] || OTHER.en];
     const shopSel = state.shop ?? types[0];
     const shopOpen = state.shopOpen;
+    const shopIsOther = shopSel === types[types.length - 1];
+
+    // Hero headline: the "POS" in heroC becomes a yellow "Smart POS" (Arabic: "نقاط البيع الذكية").
+    const hc = t.heroC || '', hm = hc.match(/POS|نقاط البيع/), hi0 = hm ? hm.index : -1;
+    const smart = SMART[l] || SMART.en;
+    const posWord = smart[1] === 'before' ? `<span>${esc(smart[0])}</span> ${esc(hm && hm[0])}` : `${esc(hm && hm[0])} <span>${esc(smart[0])}</span>`;
 
     return {
+      heroPre: hm ? hc.slice(0, hi0) : hc, heroPosWord: hm ? { html: `<span style="color:#FCB808;white-space:nowrap">${posWord}</span>` } : '', heroPost: hm ? hc.slice(hi0 + hm[0].length) : '',
+      saOnlyDisp: sa ? 'inline' : 'none',
       navBg: state.navSolid ? 'rgba(30,57,162,.92)' : 'transparent', navBlur: state.navSolid ? 'blur(12px)' : 'none', navLine: state.navSolid ? 'rgba(255,255,255,.14)' : 'transparent',
       dir: ar ? 'rtl' : 'ltr', isRtl: ar, isLtr: !ar, heroFlip: 'none', bidi: l === 'ur' || l === 'hi' ? 'mixed' : 'none', t, isSA: sa, isAE: !sa, showPricing: props.showPricing,
       countryLabel: { AE: 'UAE', SA: 'KSA' }[c] || c, countryFlag: FLAGS[c], regionOpen: state.regionOpen, toggleRegion: () => setState({ regionOpen: !state.regionOpen, langOpen: false }), countries,
       langs, langLabel: LANG_LABELS[l], langOpen: state.langOpen, toggleLang: () => setState({ langOpen: !state.langOpen, regionOpen: false }),
-      retailTypes: types, features,
+      retailTypes: d.retail[c] || [], features,
       receipt: d.receipt[c], steps: d.steps.map((s, i) => ({ n: String(i + 1).padStart(2, '0'), ...s })), stepLine: stepLine(ar),
       cmpGroups, cmpRows: state.cmpOpen ? '1fr' : '0fr', cmpChevron: state.cmpOpen ? 'rotate(180deg)' : 'rotate(0deg)', cmpLabel: state.cmpOpen ? 'Hide full comparison' : 'Compare all features', cmpTitle: 'Compare features by plan', cmpSub: 'Every feature, side by side.', cmpFeature: 'Feature', toggleCmp: () => setState({ cmpOpen: !state.cmpOpen }),
       hwCards: d.hardware.slice(0, 5).map((x, i) => { const on = state.hwHover === i; const img = ['terminal', 'printer', 'scanner', 'drawer', 'card'][i]; return { ...x, imgUrl: 'url(assets/hw-' + img + '-cut.png)', glow: on ? 1 : 0, scale: on ? 'scale(1.1) translateY(-4%)' : 'scale(1)', enter: () => setState({ hwHover: i }), leave: () => setState({ hwHover: -1 }) }; }),
@@ -264,7 +285,8 @@
       faqs,
       shopRef: refs.shop, shopOpen, shopLabel: shopSel, shopChev: shopOpen ? 'rotate(180deg)' : 'rotate(0deg)', shopBorder: shopOpen ? '#1E39A2' : '#d3d4d6', shopRing: shopOpen ? '0 0 0 3px rgba(30,57,162,.18)' : 'none',
       toggleShop: () => setState({ shopOpen: !shopOpen }), shopKey: e => { if (e.key === 'Escape') setState({ shopOpen: false }); },
-      shopOptions: types.map(r => ({ label: r, active: r === shopSel, bg: r === shopSel ? '#f3f4f5' : 'transparent', weight: r === shopSel ? 600 : 400, pick: () => setState({ shop: r, shopOpen: false }) })),
+      shopOptions: types.map((r, i) => ({ label: r, active: r === shopSel, bg: r === shopSel ? '#f3f4f5' : 'transparent', weight: r === shopSel ? 600 : 400, pick: () => setState({ shop: r, shopOpen: false, focusOther: i === types.length - 1 }) })),
+      shopIsOther, shopOtherPh: OTHER_PH[l] || OTHER_PH.en,
       lang: l,
     };
   }
@@ -371,6 +393,7 @@
 
   let replIO = null;
   function afterRender() {
+    if (state.focusOther) { state.focusOther = false; document.querySelector('#contact input[autofocus]')?.focus(); }
     revealScan();
     stackFx();
     hwFx();
@@ -406,9 +429,10 @@
   document.addEventListener('click', e => {
     const btn = e.target.closest('#contact button');
     if (!btn || btn.closest('[role="listbox"]') || btn.hasAttribute('aria-haspopup')) return;
-    const [name, phone] = [...document.querySelectorAll('#contact input')].map(i => i.value.trim());
+    const [name, phone, other] = [...document.querySelectorAll('#contact input')].map(i => i.value.trim());
     if (!name || !phone) { document.querySelector('#contact input:placeholder-shown')?.focus(); return; }
-    const shop = state.shop ?? (DATA.en.retail[country()] || [])[0];
+    const v = vals();
+    const shop = v.shopIsOther ? (other || v.shopLabel) : v.shopLabel;
     fetch('api/leads', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
