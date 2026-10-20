@@ -56,16 +56,21 @@ describe('Edukaan POS (e2e)', () => {
     expect(res.body.statusCode).toBe(404);
   });
 
-  it('stores a valid call-back request and sends it to the CRM', async () => {
+  it('stores a valid call-back request and sends it to the CRM with the reCAPTCHA token', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/leads')
+      .set('g-recaptcha-response', 'test-recaptcha-token')
       .send({ name: '  Amal  ', companyName: ' Al Noor Grocery ', email: 'amal@alnoor.ae', phone: '+971 50 123 4567', storeType: 'Baqala', market: 'AE', lang: 'en', pageUrl: 'https://edukaan.example/' })
       .expect(201);
     expect(res.body.id).toEqual(expect.any(String));
     const saved = JSON.parse(readFileSync(leadsFile(), 'utf8').trim().split('\n').pop()!);
     expect(saved).toMatchObject({ id: res.body.id, name: 'Amal', companyName: 'Al Noor Grocery', email: 'amal@alnoor.ae', phone: '+971 50 123 4567', market: 'AE' });
+    expect(readFileSync(leadsFile(), 'utf8')).not.toContain('test-recaptcha-token');
     const call = crmCalls.pop()!;
     expect(call.headers['x-api-key']).toBe('test-crm-key');
+    expect(call.headers['g-recaptcha-response']).toBe('test-recaptcha-token');
+    expect(call.headers['x-country']).toBe('ae');
+    expect(call.headers['x-language']).toBe('en');
     expect(call.body).toEqual({
       form_type: 'POS',
       company_name: 'Al Noor Grocery',
@@ -84,6 +89,9 @@ describe('Edukaan POS (e2e)', () => {
       .send({ name: 'Omar', companyName: 'Bakr Perfumes', email: '', phone: '+966501234567', storeType: 'Perfume shop', market: 'SA', lang: 'ar' })
       .expect(201);
     const call = crmCalls.pop()!;
+    expect(call.headers).not.toHaveProperty('g-recaptcha-response');
+    expect(call.headers['x-country']).toBe('sa');
+    expect(call.headers['x-language']).toBe('ar');
     expect(call.body).not.toHaveProperty('email');
     expect(call.body).toMatchObject({ form_type: 'POS', buyer_segment: 'Perfume shop', company_name: 'Bakr Perfumes' });
   });

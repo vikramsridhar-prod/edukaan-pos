@@ -42,7 +42,7 @@ Requests are stored as JSON Lines in `LEADS_FILE` (default `data/leads.jsonl`). 
 
 ### CRM
 
-When `CRM_LEADS_URL` is set, each request is also sent to the Tradeling CRM leads API (`src/leads/crm.service.ts`), with the API key from `CRM_API_KEY` in the `CRM_API_KEY_HEADER` header (default `x-api-key`). Keep the keys in the server's environment or a local `.env`; never commit them or put them in `public/`. The local copy is kept either way, so nothing is lost if the CRM is down; failures are logged.
+When `CRM_LEADS_URL` is set, each request is also sent to the Tradeling CRM leads API (`src/leads/crm.service.ts`). That endpoint is protected by reCAPTCHA v3: the page loads Google's script (Tradeling's site key, in `public/app.js`) when a visitor starts on the form, gets a token for the `contactUs` action on Send, and the server passes it on in the `g-recaptcha-response` header with `x-country` / `x-language`. The token is never stored. If `CRM_API_KEY` is set, it is sent too, in the `CRM_API_KEY_HEADER` header (default `x-api-key`). Keep the keys in the server's environment or a local `.env`; never commit them or put them in `public/`. The local copy is kept either way, so nothing is lost if the CRM is down; failures are logged.
 
 | CRM field | From the form |
 | --- | --- |
@@ -55,7 +55,7 @@ When `CRM_LEADS_URL` is set, each request is also sent to the Tradeling CRM lead
 | `message` | "Call-back request from the Edukaan POS landing page", with market, language and store type |
 | `page_url` | The landing page address |
 
-**Open item:** the stage endpoint currently requires a reCAPTCHA header (`RECAPTCHA.MISSING_RECAPTCHA_HEADER`) and did not accept the API key in place of it. The CRM team needs to confirm the server-to-server endpoint or header for the `tlcrm_` keys before this goes live.
+**Domains:** reCAPTCHA only issues valid tokens on domains registered for the site key. Add the landing page's production domain to the key in the Google reCAPTCHA admin console before going live.
 
 The contact form (name, company, phone, optional email, store type) posts to `/api/leads` and then opens WhatsApp with the details, as before. On a host without the API (GitHub Pages), the save fails quietly and WhatsApp still opens.
 
@@ -84,4 +84,4 @@ The contact form (name, company, phone, optional email, store type) posts to `/a
 ## Still to do
 
 - **Testimonial photos:** the design has empty avatar slots on the testimonial cards; they show as grey circles.
-- **CRM access:** confirm how the `tlcrm_` API keys authenticate (see CRM above).
+- **reCAPTCHA domain:** register the production domain on the site key (see CRM above).

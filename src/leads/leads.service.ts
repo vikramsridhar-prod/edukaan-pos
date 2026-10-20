@@ -25,12 +25,12 @@ export class LeadsService {
     this.file = resolve(config.get<string>('LEADS_FILE') ?? 'data/leads.jsonl');
   }
 
-  async create(dto: CreateLeadDto): Promise<Lead> {
+  async create(dto: CreateLeadDto, recaptchaToken?: string): Promise<Lead> {
     const lead: Lead = { id: randomUUID(), createdAt: new Date().toISOString(), ...dto };
     await mkdir(dirname(this.file), { recursive: true });
     await appendFile(this.file, JSON.stringify(lead) + '\n', 'utf8');
     this.logger.log(`New call-back request ${lead.id} (${lead.market})`);
-    if (this.crm.enabled && (await this.crm.send(lead))) this.logger.log(`Lead ${lead.id} sent to the CRM`);
+    if (this.crm.enabled && (await this.crm.send(lead, recaptchaToken))) this.logger.log(`Lead ${lead.id} sent to the CRM`);
     return lead;
   }
 

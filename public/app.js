@@ -7,6 +7,9 @@
 
   const LANGS = ['en', 'ar', 'hi', 'ur'];
   const WHATSAPP = '97144910000';
+  // Tradeling's reCAPTCHA v3 site key (public by design). The CRM's leads endpoint needs a token from it.
+  const RECAPTCHA_SITE_KEY = '6LfGq-keAAAAAIaTPgUvRvwnWF9GtmtAce0o9E1B';
+  const RECAPTCHA_ACTION = 'contactUs';
   const params = new URLSearchParams(location.search);
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const props = {
@@ -454,9 +457,32 @@
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && (state.regionOpen || state.langOpen)) setState({ regionOpen: false, langOpen: false }); });
 
-  // Call-back form: save the request with the NestJS API (POST /api/leads), which also sends it to the CRM, and
-  // hand the details to WhatsApp so the team gets them straight away. On a static host with no API (e.g. GitHub
-  // Pages) the save fails quietly and WhatsApp still opens.
+  // reCAPTCHA v3: the script loads when a visitor starts on the contact form (not on every page view).
+  let recaptchaLoad = null;
+  function loadRecaptcha() {
+    if (!recaptchaLoad) {
+      recaptchaLoad = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`;
+        s.async = true;
+        s.onload = () => window.grecaptcha.ready(resolve);
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    return recaptchaLoad;
+  }
+  // Resolves to a token, or '' if reCAPTCHA is blocked or slow; the lead is then still saved, just not sent to the CRM.
+  function recaptchaToken() {
+    const timeout = new Promise(resolve => setTimeout(() => resolve(''), 8000));
+    const token = loadRecaptcha().then(() => window.grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: RECAPTCHA_ACTION })).catch(() => '');
+    return Promise.race([token, timeout]);
+  }
+  document.addEventListener('focusin', e => { if (e.target.closest('#contact input, #contact button')) loadRecaptcha().catch(() => {}); });
+
+  // Call-back form: open WhatsApp with the details straight away (it must happen inside the click, or popup
+  // blockers stop it), then save the request with the NestJS API (POST /api/leads), which sends it on to the CRM
+  // with the reCAPTCHA token. On a static host with no API (e.g. GitHub Pages) the save fails quietly.
   document.addEventListener('click', e => {
     const btn = e.target.closest('#contact button');
     if (!btn || btn.closest('[role="listbox"]') || btn.hasAttribute('aria-haspopup')) return;
@@ -470,10 +496,15 @@
     const idx = v.shopOptions.findIndex(o => o.active);
     const storeType = v.shopIsOther ? (val('storeOther') || 'Other') : (DATA.en.retail[country()] || [])[idx] || v.shopLabel;
     const lead = { name: val('name'), companyName: val('company'), email: val('email'), phone: val('phone'), storeType, market: country(), lang: lang(), pageUrl: location.href.split('#')[0] };
-    fetch('api/leads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(lead), keepalive: true }).catch(() => {});
     const msg = ['Hi Edukaan, please call me back.', `Name: ${lead.name}`, `Company: ${lead.companyName}`, `Phone: ${lead.phone}`]
       .concat(lead.email ? [`Email: ${lead.email}`] : [], [`Store type: ${storeType}`, `Market: ${COUNTRY_NAMES[country()]}`]).join('\n');
     window.open(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+    recaptchaToken().then(token => fetch('api/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { 'g-recaptcha-response': token } : {}) },
+      body: JSON.stringify(lead),
+      keepalive: true,
+    })).catch(() => {});
   });
 
   render();

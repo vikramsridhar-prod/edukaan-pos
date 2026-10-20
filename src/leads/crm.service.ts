@@ -32,8 +32,11 @@ export function toCrmLead(lead: Lead): CrmLead {
 
 /**
  * Forwards call-back requests to the Tradeling CRM. Off until CRM_LEADS_URL is set.
- * The API key is read from CRM_API_KEY and sent in the CRM_API_KEY_HEADER header (default x-api-key);
- * keep it in the server's environment, never in the repository or the page.
+ *
+ * The CRM's public leads endpoint is protected by reCAPTCHA v3: the page gets a token from Google and this
+ * service passes it on in the g-recaptcha-response header, with x-country / x-language like tradeling.com does.
+ * If CRM_API_KEY is set it is also sent, in the CRM_API_KEY_HEADER header (default x-api-key); keep it in the
+ * server's environment, never in the repository or the page.
  */
 @Injectable()
 export class CrmService {
@@ -53,12 +56,18 @@ export class CrmService {
   }
 
   /** Sends the lead; resolves to true when the CRM accepted it. Never throws. */
-  async send(lead: Lead): Promise<boolean> {
+  async send(lead: Lead, recaptchaToken?: string): Promise<boolean> {
     if (!this.url) return false;
     try {
       const res = await fetch(this.url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(this.apiKey ? { [this.apiKeyHeader]: this.apiKey } : {}) },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-country': lead.market.toLowerCase(),
+          'x-language': lead.lang === 'ar' ? 'ar' : 'en',
+          ...(recaptchaToken ? { 'g-recaptcha-response': recaptchaToken } : {}),
+          ...(this.apiKey ? { [this.apiKeyHeader]: this.apiKey } : {}),
+        },
         body: JSON.stringify(toCrmLead(lead)),
         signal: AbortSignal.timeout(10_000),
       });
