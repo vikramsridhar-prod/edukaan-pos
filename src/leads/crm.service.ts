@@ -7,7 +7,7 @@ export interface CrmLead {
   form_type: 'POS';
   company_name: string;
   contact_name: string;
-  email?: string;
+  email: string;
   phone: string;
   message: string;
   page_url?: string;
@@ -21,7 +21,7 @@ export function toCrmLead(lead: Lead): CrmLead {
     form_type: 'POS',
     company_name: lead.companyName,
     contact_name: lead.name,
-    ...(lead.email ? { email: lead.email } : {}),
+    email: lead.email,
     phone: lead.phone,
     message: `Call-back request from the Edukaan POS landing page. Market: ${MARKETS[lead.market]}. Language: ${lead.lang ?? 'en'}.`
       + (lead.storeType ? ` Store type: ${lead.storeType}.` : ''),

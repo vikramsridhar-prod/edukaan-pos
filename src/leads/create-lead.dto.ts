@@ -19,11 +19,11 @@ export class CreateLeadDto {
   @MaxLength(150)
   companyName: string;
 
-  @Transform(trimOrDrop)
-  @IsOptional()
+  /** Required: the CRM rejects leads without an email. */
+  @Transform(trim)
   @IsEmail()
   @MaxLength(200)
-  email?: string;
+  email: string;
 
   /** Mobile or WhatsApp number as typed: digits, spaces, dashes, brackets and an optional leading +. */
   @Transform(trim)

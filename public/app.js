@@ -7,7 +7,8 @@
 
   const LANGS = ['en', 'ar', 'hi', 'ur'];
   const WHATSAPP = '97144910000';
-  // Tradeling's reCAPTCHA v3 site key (public by design). The CRM's leads endpoint needs a token from it.
+  // Tradeling's reCAPTCHA v3 site key (public by design); the CRM's leads endpoint needs a token from it. This is the
+  // production key; the server can supply another one (RECAPTCHA_SITE_KEY, e.g. staging) through GET api/config.
   const RECAPTCHA_SITE_KEY = '6LfGq-keAAAAAIaTPgUvRvwnWF9GtmtAce0o9E1B';
   const RECAPTCHA_ACTION = 'contactUs';
   const params = new URLSearchParams(location.search);
@@ -29,7 +30,7 @@
   const EXPR = /\{\{\s*([^}]+?)\s*\}\}/g;
   const ONLY_EXPR = /^\s*\{\{\s*([^}]+?)\s*\}\}\s*$/;
 
-  // Contact form fields that are not in the design file: company name (required) and email (optional). They are
+  // Contact form fields that are not in the design file: company name and email (both required; the CRM needs an email). They are
   // cloned from the design's name field, so they match its styling, and re-applied on every design sync. Every input
   // also gets a name so the submit handler can find it.
   (function addFormFields() {
@@ -203,7 +204,7 @@
 
   const FORM_COPY = {
     fCompany: { en: 'Company or shop name', ar: 'اسم الشركة أو المحل', hi: 'कंपनी या दुकान का नाम', ur: 'کمپنی یا دکان کا نام' },
-    fEmail: { en: 'Email (optional)', ar: 'البريد الإلكتروني (اختياري)', hi: 'ईमेल (वैकल्पिक)', ur: 'ای میل (اختیاری)' },
+    fEmail: { en: 'Email', ar: 'البريد الإلكتروني', hi: 'ईमेल', ur: 'ای میل' },
   };
   const OTHER = { en: 'Other', ar: 'أخرى', hi: 'अन्य', ur: 'دیگر' };
   const OTHER_PH = { en: 'Your shop type', ar: 'نوع محلك', hi: 'आपकी दुकान का प्रकार', ur: 'آپ کی دکان کی قسم' };
@@ -461,21 +462,23 @@
   let recaptchaLoad = null;
   function loadRecaptcha() {
     if (!recaptchaLoad) {
-      recaptchaLoad = new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`;
-        s.async = true;
-        s.onload = () => window.grecaptcha.ready(resolve);
-        s.onerror = reject;
-        document.head.appendChild(s);
-      });
+      recaptchaLoad = fetch('api/config').then(r => (r.ok ? r.json() : {})).catch(() => ({}))
+        .then(cfg => new Promise((resolve, reject) => {
+          const key = cfg.recaptchaSiteKey || RECAPTCHA_SITE_KEY;
+          const s = document.createElement('script');
+          s.src = `https://www.google.com/recaptcha/api.js?render=${key}`;
+          s.async = true;
+          s.onload = () => window.grecaptcha.ready(() => resolve(key));
+          s.onerror = reject;
+          document.head.appendChild(s);
+        }));
     }
     return recaptchaLoad;
   }
   // Resolves to a token, or '' if reCAPTCHA is blocked or slow; the lead is then still saved, just not sent to the CRM.
   function recaptchaToken() {
     const timeout = new Promise(resolve => setTimeout(() => resolve(''), 8000));
-    const token = loadRecaptcha().then(() => window.grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: RECAPTCHA_ACTION })).catch(() => '');
+    const token = loadRecaptcha().then(key => window.grecaptcha.execute(key, { action: RECAPTCHA_ACTION })).catch(() => '');
     return Promise.race([token, timeout]);
   }
   document.addEventListener('focusin', e => { if (e.target.closest('#contact input, #contact button')) loadRecaptcha().catch(() => {}); });
@@ -488,16 +491,16 @@
     if (!btn || btn.closest('[role="listbox"]') || btn.hasAttribute('aria-haspopup')) return;
     const input = n => document.querySelector(`#contact input[name="${n}"]`);
     const val = n => (input(n)?.value || '').trim();
-    // Name, company and phone are required; email is optional but must look like an email when given.
-    const missing = ['name', 'company', 'phone'].find(n => !val(n)) || (val('email') && !input('email').checkValidity() ? 'email' : null);
+    // All four are required (the CRM rejects leads without an email), and the email must look like one.
+    const missing = ['name', 'company', 'phone', 'email'].find(n => !val(n)) || (!input('email').checkValidity() ? 'email' : null);
     if (missing) { input(missing).focus(); return; }
     const v = vals();
     // The CRM gets the store type in English whatever the page language; "Other" sends what the visitor typed.
     const idx = v.shopOptions.findIndex(o => o.active);
     const storeType = v.shopIsOther ? (val('storeOther') || 'Other') : (DATA.en.retail[country()] || [])[idx] || v.shopLabel;
     const lead = { name: val('name'), companyName: val('company'), email: val('email'), phone: val('phone'), storeType, market: country(), lang: lang(), pageUrl: location.href.split('#')[0] };
-    const msg = ['Hi Edukaan, please call me back.', `Name: ${lead.name}`, `Company: ${lead.companyName}`, `Phone: ${lead.phone}`]
-      .concat(lead.email ? [`Email: ${lead.email}`] : [], [`Store type: ${storeType}`, `Market: ${COUNTRY_NAMES[country()]}`]).join('\n');
+    const msg = ['Hi Edukaan, please call me back.', `Name: ${lead.name}`, `Company: ${lead.companyName}`, `Phone: ${lead.phone}`,
+      `Email: ${lead.email}`, `Store type: ${storeType}`, `Market: ${COUNTRY_NAMES[country()]}`].join('\n');
     window.open(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
     recaptchaToken().then(token => fetch('api/leads', {
       method: 'POST',
