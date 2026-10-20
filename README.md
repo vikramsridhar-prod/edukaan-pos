@@ -89,7 +89,7 @@ Each market + language has its own address, for linking from ads, emails and the
 | `/sa-en` | KSA, English |
 | `/sa-ar` | KSA, Arabic |
 
-`/ae-hi`, `/ae-ur`, `/sa-hi` and `/sa-ur` work too (Hindi, Urdu). The server redirects variants such as `/AE-EN` or `/ae-en/` to the lower-case address without a trailing slash. Changing the market or language in the page's menus updates the address (keeping the visitor's language when they switch market), and the page sets a canonical link plus `hreflang` alternates for the four main versions. The bare home page (`/`) shows UAE English until the visitor picks something.
+`/ae-hi`, `/ae-ur`, `/sa-hi` and `/sa-ur` work too (Hindi, Urdu). The server redirects variants such as `/AE-EN` or `/ae-en/` to the lower-case address without a trailing slash. Changing the market or language in the page's menus updates the address; choosing a market switches to its default language (KSA → `/sa-ar`, UAE → `/ae-en`), and the language menu can change it from there, and the page sets a canonical link plus `hreflang` alternates for the four main versions. The bare home page (`/`) shows UAE English until the visitor picks something.
 
 These addresses need the Node server; on GitHub Pages only the home page loads directly.
 

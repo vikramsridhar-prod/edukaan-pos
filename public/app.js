@@ -279,8 +279,8 @@
     const t = { ...COPY.en.base, ...COPY.en[c], ...CL.base, ...CL[c] };
     const d = { ...DATA.en, ...(DATA[l] || {}) };
     const langs = LANGS.map(k => { const on = k === l; return { key: k, label: LANG_LABELS[k], active: on, bg: on ? '#E9FAF0' : 'transparent', pick: () => setState({ lang: k, langOpen: false }) }; });
-    // Switching market keeps the language the visitor is reading in (so /ae-ar → /sa-ar).
-    const countries = ['AE', 'SA'].map(cc => ({ name: COUNTRY_NAMES[cc], flag: FLAGS[cc], ae: cc === 'AE', sa: cc === 'SA', active: cc === c, bg: cc === c ? '#E9FAF0' : 'transparent', pick: () => setState({ country: cc, lang: l, regionOpen: false, openFaq: 0, shop: null }) }));
+    // Switching market also switches to that market's default language: KSA → Arabic (/sa-ar), UAE → English (/ae-en).
+    const countries = ['AE', 'SA'].map(cc => ({ name: COUNTRY_NAMES[cc], flag: FLAGS[cc], ae: cc === 'AE', sa: cc === 'SA', active: cc === c, bg: cc === c ? '#E9FAF0' : 'transparent', pick: () => setState({ country: cc, lang: cc === 'SA' ? 'ar' : 'en', regionOpen: false, openFaq: 0, shop: null }) }));
     const faqs = d.faq[c].map((f, i) => ({ ...f, border: i === 0 ? 'none' : '1px solid #d3d4d6', open: state.openFaq === i, sign: state.openFaq === i ? '−' : '+', toggle: () => setState({ openFaq: state.openFaq === i ? -1 : i }) }));
     const nf = d.features[c].length;
     const features = d.features[c].map((f, i) => ({
