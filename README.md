@@ -57,7 +57,7 @@ When `CRM_LEADS_URL` is set, each request is also sent to the Tradeling CRM lead
 
 **Domains:** reCAPTCHA only issues valid tokens on domains registered for the site key. Add the landing page's production domain to the key in the Google reCAPTCHA admin console before going live.
 
-The contact form (name, company, phone, optional email, store type) posts to `/api/leads` and then opens WhatsApp with the details, as before. On a host without the API (GitHub Pages), the save fails quietly and WhatsApp still opens.
+The contact form (name, company, phone, email, store type) posts to `/api/leads`, then shows a confirmation ("one of our team members will get in touch within the next 48 hours"), or an error so the visitor can try again. GitHub Pages has no API, so the form shows the error there.
 
 ## Hosting
 

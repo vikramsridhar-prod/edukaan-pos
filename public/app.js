@@ -6,7 +6,6 @@
   'use strict';
 
   const LANGS = ['en', 'ar', 'hi', 'ur'];
-  const WHATSAPP = '97144910000';
   // Tradeling's reCAPTCHA v3 site key (public by design); the CRM's leads endpoint needs a token from it. This is the
   // production key; the server can supply another one (RECAPTCHA_SITE_KEY, e.g. staging) through GET api/config.
   const RECAPTCHA_SITE_KEY = '6LfGq-keAAAAAIaTPgUvRvwnWF9GtmtAce0o9E1B';
@@ -53,6 +52,25 @@
     nameInput.after(field('company', '{{ fCompany }}', { autocomplete: 'organization' }));
     phoneInput.after(field('email', '{{ fEmail }}', { type: 'email', autocomplete: 'email', inputmode: 'email', dir: 'ltr' }));
     form.querySelector('input[placeholder="{{ shopOtherPh }}"]')?.setAttribute('name', 'storeOther');
+
+    // After a successful send the card shows a confirmation instead of the fields; a failed send shows an error
+    // above the button. The button reads "Sending…" while the request is in flight.
+    const card = nameInput.parentElement;
+    const sendBtn = [...card.querySelectorAll('button')].find(b => b.textContent.includes('{{ t.fSend }}'));
+    if (!sendBtn) return;
+    sendBtn.setAttribute('name', 'send');
+    sendBtn.setAttribute('aria-busy', '{{ formSending }}');
+    sendBtn.textContent = '{{ sendLabel }}';
+    const tpl = html => { const t = document.createElement('template'); t.innerHTML = html; return t.content.firstElementChild; };
+    const fields = tpl('<sc-if value="{{ formOpen }}"></sc-if>');
+    while (card.firstChild) fields.appendChild(card.firstChild);
+    card.appendChild(fields);
+    sendBtn.before(tpl('<sc-if value="{{ formError }}"><div role="alert" style="background:#faefed;color:#9b1106;border-radius:8px;padding:12px 14px;font-size:14px;line-height:20px">{{ formErrorText }}</div></sc-if>'));
+    card.appendChild(tpl(`<sc-if value="{{ formSent }}"><div role="status" aria-live="polite" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:16px;min-height:360px;padding:16px 8px">
+      <span style="width:64px;height:64px;border-radius:50%;background:#E9FAF0;display:flex;align-items:center;justify-content:center"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#25D366" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+      <div style="font-size:24px;line-height:32px;font-weight:600">{{ sentTitle }}</div>
+      <div style="font-size:16px;line-height:24px;color:#505153;max-width:36ch">{{ sentBody }}</div>
+    </div></sc-if>`));
   })();
 
   // style-hover / style-focus / style-active become generated CSS classes (inline styles need !important to lose).
@@ -198,13 +216,27 @@
   // Component: state + derived values (port of the design's renderVals / _rv).
   // ---------------------------------------------------------------------------
 
-  const state = { country: null, lang: null, openFaq: 0, regionOpen: false, langOpen: false, shopOpen: false, shop: null, cmpOpen: false, chartTab: 'rev', velHover: -1, hwHover: -1, navSolid: false, replIn: false, sStart: true, sEnd: false };
+  const state = { formStatus: 'idle', country: null, lang: null, openFaq: 0, regionOpen: false, langOpen: false, shopOpen: false, shop: null, cmpOpen: false, chartTab: 'rev', velHover: -1, hwHover: -1, navSolid: false, replIn: false, sStart: true, sEnd: false };
   const refs = { hw: { current: null }, hwTrack: { current: null }, hwBar: { current: null }, story: { current: null }, repl: { current: null }, shop: { current: null } };
   const featRefs = Array.from({ length: 6 }, () => ({ current: null }));
 
   const FORM_COPY = {
     fCompany: { en: 'Company or shop name', ar: 'اسم الشركة أو المحل', hi: 'कंपनी या दुकान का नाम', ur: 'کمپنی یا دکان کا نام' },
     fEmail: { en: 'Email', ar: 'البريد الإلكتروني', hi: 'ईमेल', ur: 'ای میل' },
+    sending: { en: 'Sending…', ar: 'جارٍ الإرسال…', hi: 'भेजा जा रहा है…', ur: 'بھیجا جا رہا ہے…' },
+    sentTitle: { en: 'Thank you!', ar: 'شكراً لك!', hi: 'धन्यवाद!', ur: 'شکریہ!' },
+    sentBody: {
+      en: 'Your request has been submitted. One of our team members will get in touch within the next 48 hours.',
+      ar: 'تم إرسال طلبك. سيتواصل معك أحد أعضاء فريقنا خلال 48 ساعة.',
+      hi: 'आपका अनुरोध भेज दिया गया है। हमारी टीम का कोई सदस्य अगले 48 घंटों में आपसे संपर्क करेगा।',
+      ur: 'آپ کی درخواست جمع ہو گئی ہے۔ ہماری ٹیم کا کوئی رکن اگلے 48 گھنٹوں میں آپ سے رابطہ کرے گا۔',
+    },
+    sendError: {
+      en: 'Something went wrong and your request was not sent. Please try again.',
+      ar: 'حدث خطأ ولم يُرسل طلبك. يرجى المحاولة مرة أخرى.',
+      hi: 'कुछ गलत हो गया और आपका अनुरोध नहीं भेजा गया। कृपया फिर से कोशिश करें।',
+      ur: 'کچھ غلط ہو گیا اور آپ کی درخواست نہیں بھیجی گئی۔ براہ کرم دوبارہ کوشش کریں۔',
+    },
   };
   const OTHER = { en: 'Other', ar: 'أخرى', hi: 'अन्य', ur: 'دیگر' };
   const OTHER_PH = { en: 'Your shop type', ar: 'نوع محلك', hi: 'आपकी दुकान का प्रकार', ur: 'آپ کی دکان کی قسم' };
@@ -321,6 +353,10 @@
       shopOptions: types.map((r, i) => ({ label: r, active: r === shopSel, bg: r === shopSel ? '#f3f4f5' : 'transparent', weight: r === shopSel ? 600 : 400, pick: () => setState({ shop: r, shopOpen: false, focusOther: i === types.length - 1 }) })),
       shopIsOther, shopOtherPh: OTHER_PH[l] || OTHER_PH.en,
       fCompany: FORM_COPY.fCompany[l] || FORM_COPY.fCompany.en, fEmail: FORM_COPY.fEmail[l] || FORM_COPY.fEmail.en,
+      formOpen: state.formStatus !== 'sent', formSent: state.formStatus === 'sent', formSending: state.formStatus === 'sending' ? 'true' : 'false',
+      formError: state.formStatus === 'error', formErrorText: FORM_COPY.sendError[l] || FORM_COPY.sendError.en,
+      sendLabel: state.formStatus === 'sending' ? (FORM_COPY.sending[l] || FORM_COPY.sending.en) : t.fSend,
+      sentTitle: FORM_COPY.sentTitle[l] || FORM_COPY.sentTitle.en, sentBody: FORM_COPY.sentBody[l] || FORM_COPY.sentBody.en,
       lang: l,
     };
   }
@@ -483,12 +519,11 @@
   }
   document.addEventListener('focusin', e => { if (e.target.closest('#contact input, #contact button')) loadRecaptcha().catch(() => {}); });
 
-  // Call-back form: open WhatsApp with the details straight away (it must happen inside the click, or popup
-  // blockers stop it), then save the request with the NestJS API (POST /api/leads), which sends it on to the CRM
-  // with the reCAPTCHA token. On a static host with no API (e.g. GitHub Pages) the save fails quietly.
+  // Call-back form: save the request with the NestJS API (POST /api/leads), which sends it on to the CRM with the
+  // reCAPTCHA token, then show a confirmation in place of the form (or an error, so the visitor can try again).
   document.addEventListener('click', e => {
-    const btn = e.target.closest('#contact button');
-    if (!btn || btn.closest('[role="listbox"]') || btn.hasAttribute('aria-haspopup')) return;
+    const btn = e.target.closest('#contact button[name="send"]');
+    if (!btn || state.formStatus === 'sending') return;
     const input = n => document.querySelector(`#contact input[name="${n}"]`);
     const val = n => (input(n)?.value || '').trim();
     // All four are required (the CRM rejects leads without an email), and the email must look like one.
@@ -499,15 +534,15 @@
     const idx = v.shopOptions.findIndex(o => o.active);
     const storeType = v.shopIsOther ? (val('storeOther') || 'Other') : (DATA.en.retail[country()] || [])[idx] || v.shopLabel;
     const lead = { name: val('name'), companyName: val('company'), email: val('email'), phone: val('phone'), storeType, market: country(), lang: lang(), pageUrl: location.href.split('#')[0] };
-    const msg = ['Hi Edukaan, please call me back.', `Name: ${lead.name}`, `Company: ${lead.companyName}`, `Phone: ${lead.phone}`,
-      `Email: ${lead.email}`, `Store type: ${storeType}`, `Market: ${COUNTRY_NAMES[country()]}`].join('\n');
-    window.open(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
-    recaptchaToken().then(token => fetch('api/leads', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(token ? { 'g-recaptcha-response': token } : {}) },
-      body: JSON.stringify(lead),
-      keepalive: true,
-    })).catch(() => {});
+    setState({ formStatus: 'sending' });
+    recaptchaToken()
+      .then(token => fetch('api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { 'g-recaptcha-response': token } : {}) },
+        body: JSON.stringify(lead),
+      }))
+      .then(res => setState({ formStatus: res.ok ? 'sent' : 'error' }))
+      .catch(() => setState({ formStatus: 'error' }));
   });
 
   render();
