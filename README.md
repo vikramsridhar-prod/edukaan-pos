@@ -42,14 +42,16 @@ Requests are stored as JSON Lines in `LEADS_FILE` (default `data/leads.jsonl`). 
 
 ### CRM
 
-When `CRM_LEADS_URL` is set, each request is also sent to the Tradeling CRM leads API (`src/leads/crm.service.ts`). That endpoint is protected by reCAPTCHA v3: the page loads Google's script (Tradeling's site key, in `public/app.js`) when a visitor starts on the form, gets a token for the `contactUs` action on Send, and the server passes it on in the `g-recaptcha-response` header with `x-country` / `x-language`. The token is never stored. If `CRM_API_KEY` is set, it is sent too, in the `CRM_API_KEY_HEADER` header (default `x-api-key`). Keep the keys in the server's environment or a local `.env`; never commit them or put them in `public/`. The local copy is kept either way, so nothing is lost if the CRM is down; failures are logged.
+When `CRM_LEADS_URL` is set, each request is also sent to the Tradeling CRM's server-to-server leads API (`src/leads/crm.service.ts`; staging: `https://crm.tradelingstage.com/api/tradeling/v1/leads`), authenticated with `CRM_API_KEY` in the `X-Tradeling-API-Key` header (`CRM_API_KEY_HEADER`). Keep the keys in the server's environment or a local `.env`; never commit them or put them in `public/`. The local copy is kept either way, so nothing is lost if the CRM is down; failures are logged. The page still gets a reCAPTCHA v3 token on Send (`RECAPTCHA_SITE_KEY` via `GET /api/config`) and the server passes it along, for CRM endpoints that check it.
 
 | CRM field | From the form |
 | --- | --- |
-| `form_type` | `CRM_FORM_TYPE` (default `POS`) |
+| `submission_id` | Our lead id (unique per submission) |
+| `form_type` | `CRM_FORM_TYPE` (default `pos`) |
+| `country` | `AE` (UAE) or `SA` (KSA): the market the form was filled under, in any language |
 | `company_name` | Company or shop name |
 | `contact_name` | Your name |
-| `email` | Email (optional; left out when empty) |
+| `email` | Email (required) |
 | `phone` | Mobile or WhatsApp number |
 | `category` | Store type in English ("Mobile shop", "Baqala", "Café", …), or what the visitor typed after choosing "Other" |
 | `buyer_segment` | `CRM_BUYER_SEGMENT` (default `sme`; the CRM accepts `sme` or `enterprise`) |

@@ -27,9 +27,10 @@ describe('Edukaan POS (e2e)', () => {
     await new Promise<void>(r => crm.listen(0, '127.0.0.1', r));
     process.env.CRM_LEADS_URL = `http://127.0.0.1:${(crm.address() as AddressInfo).port}/api/www/v1/leads`;
     process.env.CRM_API_KEY = 'test-crm-key';
+    process.env.CRM_FORM_TYPE = '';
+    process.env.CRM_API_KEY_HEADER = '';
     process.env.RECAPTCHA_SITE_KEY = 'test-site-key';
     process.env.RATE_LIMIT = '100';
-    process.env.CRM_FORM_TYPE = 'POS';
     process.env.LEADS_FILE = leadsFile();
     process.env.LEADS_TOKEN = 'test-token';
     // Boot exactly like main.ts. (Test.createTestingModule would build ServeStaticModule before the
@@ -70,12 +71,14 @@ describe('Edukaan POS (e2e)', () => {
     expect(saved).toMatchObject({ id: res.body.id, name: 'Amal', companyName: 'Al Noor Grocery', email: 'amal@alnoor.ae', phone: '+971 50 123 4567', market: 'AE' });
     expect(readFileSync(leadsFile(), 'utf8')).not.toContain('test-recaptcha-token');
     const call = crmCalls.pop()!;
-    expect(call.headers['x-api-key']).toBe('test-crm-key');
+    expect(call.headers['x-tradeling-api-key']).toBe('test-crm-key');
     expect(call.headers['g-recaptcha-response']).toBe('test-recaptcha-token');
     expect(call.headers['x-country']).toBe('ae');
     expect(call.headers['x-language']).toBe('en');
     expect(call.body).toEqual({
-      form_type: 'POS',
+      submission_id: res.body.id,
+      form_type: 'pos',
+      country: 'AE',
       company_name: 'Al Noor Grocery',
       contact_name: 'Amal',
       email: 'amal@alnoor.ae',
@@ -96,7 +99,7 @@ describe('Edukaan POS (e2e)', () => {
     expect(call.headers).not.toHaveProperty('g-recaptcha-response');
     expect(call.headers['x-country']).toBe('sa');
     expect(call.headers['x-language']).toBe('ar');
-    expect(call.body).toMatchObject({ form_type: 'POS', category: 'Perfume shop', buyer_segment: 'sme', company_name: 'Bakr Perfumes', email: 'omar@bakr.sa' });
+    expect(call.body).toMatchObject({ form_type: 'pos', country: 'SA', category: 'Perfume shop', buyer_segment: 'sme', company_name: 'Bakr Perfumes', email: 'omar@bakr.sa' });
   });
 
   it('gives the page its reCAPTCHA site key from the environment', async () => {

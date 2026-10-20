@@ -4,7 +4,11 @@ import type { Lead } from './leads.service';
 
 /** The lead as the Tradeling CRM leads API expects it (POST {CRM_LEADS_URL}). */
 export interface CrmLead {
+  /** Our lead id, so the CRM can recognise a repeat of the same submission. */
+  submission_id: string;
   form_type: string;
+  /** Market the form was filled under: AE (UAE) or SA (KSA), whatever the page language. */
+  country: 'AE' | 'SA';
   company_name: string;
   contact_name: string;
   email: string;
@@ -17,9 +21,11 @@ export interface CrmLead {
 
 const MARKETS = { AE: 'UAE', SA: 'KSA' } as const;
 
-export function toCrmLead(lead: Lead, formType = 'POS', buyerSegment = 'sme'): CrmLead {
+export function toCrmLead(lead: Lead, formType = 'pos', buyerSegment = 'sme'): CrmLead {
   return {
+    submission_id: lead.id,
     form_type: formType,
+    country: lead.market,
     company_name: lead.companyName,
     contact_name: lead.name,
     email: lead.email,
@@ -33,12 +39,11 @@ export function toCrmLead(lead: Lead, formType = 'POS', buyerSegment = 'sme'): C
 }
 
 /**
- * Forwards call-back requests to the Tradeling CRM. Off until CRM_LEADS_URL is set.
+ * Forwards call-back requests to the Tradeling CRM's server-to-server leads API. Off until CRM_LEADS_URL is set.
  *
- * The CRM's public leads endpoint is protected by reCAPTCHA v3: the page gets a token from Google and this
- * service passes it on in the g-recaptcha-response header, with x-country / x-language like tradeling.com does.
- * If CRM_API_KEY is set it is also sent, in the CRM_API_KEY_HEADER header (default x-api-key); keep it in the
- * server's environment, never in the repository or the page.
+ * Authenticates with CRM_API_KEY in the CRM_API_KEY_HEADER header (default X-Tradeling-API-Key); keep the key in
+ * the server's environment, never in the repository or the page. When the page sent a reCAPTCHA token it is
+ * passed on too (g-recaptcha-response, with x-country / x-language), for CRM endpoints that check it.
  */
 @Injectable()
 export class CrmService {
@@ -52,8 +57,8 @@ export class CrmService {
   constructor(config: ConfigService) {
     this.url = config.get<string>('CRM_LEADS_URL') || undefined;
     this.apiKey = config.get<string>('CRM_API_KEY') || undefined;
-    this.apiKeyHeader = config.get<string>('CRM_API_KEY_HEADER') || 'x-api-key';
-    this.formType = config.get<string>('CRM_FORM_TYPE') || 'POS';
+    this.apiKeyHeader = config.get<string>('CRM_API_KEY_HEADER') || 'X-Tradeling-API-Key';
+    this.formType = config.get<string>('CRM_FORM_TYPE') || 'pos';
     this.buyerSegment = config.get<string>('CRM_BUYER_SEGMENT') || 'sme';
   }
 
