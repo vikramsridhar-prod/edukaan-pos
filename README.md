@@ -34,13 +34,30 @@ For production: `npm run build`, then `npm run start:prod`. Settings come from e
 
 | Route | What it does |
 | --- | --- |
-| `POST /api/leads` | Saves a call-back request: `{ name, phone, storeType?, market: "AE" \| "SA", lang?: "en" \| "ar" \| "hi" \| "ur" }`. Validated; at most 10 requests a minute per client. Returns `{ id }`. |
+| `POST /api/leads` | Saves a call-back request and sends it to the CRM: `{ name, companyName, email?, phone, storeType?, market: "AE" \| "SA", lang?: "en" \| "ar" \| "hi" \| "ur", pageUrl? }`. Validated; at most 10 requests a minute per client. Returns `{ id }`. |
 | `GET /api/leads` | Every request so far, newest first. Needs `Authorization: Bearer <LEADS_TOKEN>`; without `LEADS_TOKEN` set, the route returns 404. |
 | `GET /api/health` | `{ "status": "ok" }`, for uptime checks. |
 
-Requests are stored as JSON Lines in `LEADS_FILE` (default `data/leads.jsonl`). On a host whose disk is wiped on each deploy, point `LEADS_FILE` at persistent storage, or swap `LeadsService` for a CRM or database.
+Requests are stored as JSON Lines in `LEADS_FILE` (default `data/leads.jsonl`). On a host whose disk is wiped on each deploy, point `LEADS_FILE` at persistent storage.
 
-The contact form posts to `/api/leads` and then opens WhatsApp with the details, as before. On a host without the API (GitHub Pages), the save fails quietly and WhatsApp still opens.
+### CRM
+
+When `CRM_LEADS_URL` is set, each request is also sent to the Tradeling CRM leads API (`src/leads/crm.service.ts`), with the API key from `CRM_API_KEY` in the `CRM_API_KEY_HEADER` header (default `x-api-key`). Keep the keys in the server's environment or a local `.env`; never commit them or put them in `public/`. The local copy is kept either way, so nothing is lost if the CRM is down; failures are logged.
+
+| CRM field | From the form |
+| --- | --- |
+| `form_type` | Always `POS` |
+| `company_name` | Company or shop name |
+| `contact_name` | Your name |
+| `email` | Email (optional; left out when empty) |
+| `phone` | Mobile or WhatsApp number |
+| `buyer_segment` | Store type in English ("Mobile shop", "Baqala", "Café", …), or what the visitor typed after choosing "Other" |
+| `message` | "Call-back request from the Edukaan POS landing page", with market, language and store type |
+| `page_url` | The landing page address |
+
+**Open item:** the stage endpoint currently requires a reCAPTCHA header (`RECAPTCHA.MISSING_RECAPTCHA_HEADER`) and did not accept the API key in place of it. The CRM team needs to confirm the server-to-server endpoint or header for the `tlcrm_` keys before this goes live.
+
+The contact form (name, company, phone, optional email, store type) posts to `/api/leads` and then opens WhatsApp with the details, as before. On a host without the API (GitHub Pages), the save fails quietly and WhatsApp still opens.
 
 ## Hosting
 
@@ -67,4 +84,4 @@ The contact form posts to `/api/leads` and then opens WhatsApp with the details,
 ## Still to do
 
 - **Testimonial photos:** the design has empty avatar slots on the testimonial cards; they show as grey circles.
-- **Lead storage:** call-back requests are saved to a file on the server. Connect `LeadsService` to your CRM when you pick one.
+- **CRM access:** confirm how the `tlcrm_` API keys authenticate (see CRM above).

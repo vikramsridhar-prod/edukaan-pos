@@ -26,6 +26,31 @@
   const EXPR = /\{\{\s*([^}]+?)\s*\}\}/g;
   const ONLY_EXPR = /^\s*\{\{\s*([^}]+?)\s*\}\}\s*$/;
 
+  // Contact form fields that are not in the design file: company name (required) and email (optional). They are
+  // cloned from the design's name field, so they match its styling, and re-applied on every design sync. Every input
+  // also gets a name so the submit handler can find it.
+  (function addFormFields() {
+    const form = tplEl.content.querySelector('#contact');
+    const nameInput = form && form.querySelector('input[placeholder="{{ t.fName }}"]');
+    const phoneInput = form && form.querySelector('input[placeholder="{{ t.fPhone }}"]');
+    if (!nameInput || !phoneInput) return;
+    const field = (name, placeholder, extra) => {
+      const el = nameInput.cloneNode(false);
+      el.setAttribute('name', name);
+      el.setAttribute('placeholder', placeholder);
+      el.setAttribute('aria-label', placeholder);
+      for (const [k, v] of Object.entries(extra)) el.setAttribute(k, v);
+      return el;
+    };
+    nameInput.setAttribute('name', 'name');
+    nameInput.setAttribute('autocomplete', 'name');
+    phoneInput.setAttribute('name', 'phone');
+    phoneInput.setAttribute('autocomplete', 'tel');
+    nameInput.after(field('company', '{{ fCompany }}', { autocomplete: 'organization' }));
+    phoneInput.after(field('email', '{{ fEmail }}', { type: 'email', autocomplete: 'email', inputmode: 'email', dir: 'ltr' }));
+    form.querySelector('input[placeholder="{{ shopOtherPh }}"]')?.setAttribute('name', 'storeOther');
+  })();
+
   // style-hover / style-focus / style-active become generated CSS classes (inline styles need !important to lose).
   const pseudoClass = new WeakMap();
   (function buildPseudoCss() {
@@ -173,6 +198,10 @@
   const refs = { hw: { current: null }, hwTrack: { current: null }, hwBar: { current: null }, story: { current: null }, repl: { current: null }, shop: { current: null } };
   const featRefs = Array.from({ length: 6 }, () => ({ current: null }));
 
+  const FORM_COPY = {
+    fCompany: { en: 'Company or shop name', ar: 'اسم الشركة أو المحل', hi: 'कंपनी या दुकान का नाम', ur: 'کمپنی یا دکان کا نام' },
+    fEmail: { en: 'Email (optional)', ar: 'البريد الإلكتروني (اختياري)', hi: 'ईमेल (वैकल्पिक)', ur: 'ای میل (اختیاری)' },
+  };
   const OTHER = { en: 'Other', ar: 'أخرى', hi: 'अन्य', ur: 'دیگر' };
   const OTHER_PH = { en: 'Your shop type', ar: 'نوع محلك', hi: 'आपकी दुकान का प्रकार', ur: 'آپ کی دکان کی قسم' };
   const SMART = { en: ['Smart', 'before'], ar: ['الذكية', 'after'], hi: ['स्मार्ट', 'before'], ur: ['اسمارٹ', 'before'] };
@@ -287,6 +316,7 @@
       toggleShop: () => setState({ shopOpen: !shopOpen }), shopKey: e => { if (e.key === 'Escape') setState({ shopOpen: false }); },
       shopOptions: types.map((r, i) => ({ label: r, active: r === shopSel, bg: r === shopSel ? '#f3f4f5' : 'transparent', weight: r === shopSel ? 600 : 400, pick: () => setState({ shop: r, shopOpen: false, focusOther: i === types.length - 1 }) })),
       shopIsOther, shopOtherPh: OTHER_PH[l] || OTHER_PH.en,
+      fCompany: FORM_COPY.fCompany[l] || FORM_COPY.fCompany.en, fEmail: FORM_COPY.fEmail[l] || FORM_COPY.fEmail.en,
       lang: l,
     };
   }
@@ -301,7 +331,8 @@
     Object.assign(state, patch);
     if (scheduled) return;
     scheduled = true;
-    requestAnimationFrame(() => { scheduled = false; render(); });
+    // requestAnimationFrame does not run in hidden tabs, so fall back to a timer there.
+    (document.hidden ? fn => setTimeout(fn, 16) : requestAnimationFrame)(() => { scheduled = false; render(); });
   }
 
   function render() {
@@ -423,23 +454,25 @@
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && (state.regionOpen || state.langOpen)) setState({ regionOpen: false, langOpen: false }); });
 
-  // Call-back form: save the request with the NestJS API (POST /api/leads) and hand the details to WhatsApp
-  // so the team gets them straight away. On a static host with no API (e.g. GitHub Pages) the save fails
-  // quietly and WhatsApp still opens.
+  // Call-back form: save the request with the NestJS API (POST /api/leads), which also sends it to the CRM, and
+  // hand the details to WhatsApp so the team gets them straight away. On a static host with no API (e.g. GitHub
+  // Pages) the save fails quietly and WhatsApp still opens.
   document.addEventListener('click', e => {
     const btn = e.target.closest('#contact button');
     if (!btn || btn.closest('[role="listbox"]') || btn.hasAttribute('aria-haspopup')) return;
-    const [name, phone, other] = [...document.querySelectorAll('#contact input')].map(i => i.value.trim());
-    if (!name || !phone) { document.querySelector('#contact input:placeholder-shown')?.focus(); return; }
+    const input = n => document.querySelector(`#contact input[name="${n}"]`);
+    const val = n => (input(n)?.value || '').trim();
+    // Name, company and phone are required; email is optional but must look like an email when given.
+    const missing = ['name', 'company', 'phone'].find(n => !val(n)) || (val('email') && !input('email').checkValidity() ? 'email' : null);
+    if (missing) { input(missing).focus(); return; }
     const v = vals();
-    const shop = v.shopIsOther ? (other || v.shopLabel) : v.shopLabel;
-    fetch('api/leads', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, phone, storeType: shop, market: country(), lang: lang() }),
-      keepalive: true,
-    }).catch(() => {});
-    const msg = `Hi Edukaan, please call me back.\nName: ${name}\nWhatsApp: ${phone}\nStore type: ${shop}\nMarket: ${COUNTRY_NAMES[country()]}`;
+    // The CRM gets the store type in English whatever the page language; "Other" sends what the visitor typed.
+    const idx = v.shopOptions.findIndex(o => o.active);
+    const storeType = v.shopIsOther ? (val('storeOther') || 'Other') : (DATA.en.retail[country()] || [])[idx] || v.shopLabel;
+    const lead = { name: val('name'), companyName: val('company'), email: val('email'), phone: val('phone'), storeType, market: country(), lang: lang(), pageUrl: location.href.split('#')[0] };
+    fetch('api/leads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(lead), keepalive: true }).catch(() => {});
+    const msg = ['Hi Edukaan, please call me back.', `Name: ${lead.name}`, `Company: ${lead.companyName}`, `Phone: ${lead.phone}`]
+      .concat(lead.email ? [`Email: ${lead.email}`] : [], [`Store type: ${storeType}`, `Market: ${COUNTRY_NAMES[country()]}`]).join('\n');
     window.open(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
   });
 
